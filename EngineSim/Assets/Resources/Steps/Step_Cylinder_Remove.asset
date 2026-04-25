@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3eb94fc0e4b56fd4f989a0eb59f42aab, type: 3}
   m_Name: Step_Cylinder_Remove
   m_EditorClassIdentifier: 
-  targetPosition: {x: 0, y: 2, z: 2}
+  targetPosition: {x: 1, y: 2, z: 2}
   targetRotation: {x: 0, y: 0, z: 0}
   duration: 1
   delay: 0
-  isRemovalStep: 1
+  isRemovalStep: 0
   description: 

@@ -1,5 +1,6 @@
 using UnityEngine;
 using AssemblyApp.Data;
+using DG.Tweening;
 
 /// <summary>
 /// Контроллер взаимодействия с 3D-объектами.
@@ -299,7 +300,7 @@ public class InteractionController : MonoBehaviour
     }
 
     /// <summary>
-    /// Подсветка объекта на заданное время
+    /// Подсветка объекта на заданное время с гарантированным отключением
     /// </summary>
     private void HighlightObject(GameObject target, float duration)
     {
@@ -315,16 +316,39 @@ public class InteractionController : MonoBehaviour
         _propertyBlock.SetColor(_emissionId, finalColor);
         renderer.SetPropertyBlock(_propertyBlock);
 
-        // Затухание через DOTween
-        DG.Tweening.DOTween.To(() => 1f, x => {
+        // Запускаем корутину для затухания и гарантированного отключения
+        StartCoroutine(HighlightFadeRoutine(renderer, finalColor, duration));
+    }
+
+    /// <summary>
+    /// Корутина плавного затухания подсветки
+    /// </summary>
+    private System.Collections.IEnumerator HighlightFadeRoutine(Renderer renderer, Color startColor, float duration)
+    {
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+
             if (renderer != null)
             {
                 renderer.GetPropertyBlock(_propertyBlock);
-                Color fadingColor = finalColor * (1f - x);
+                Color fadingColor = startColor * (1f - t);
                 _propertyBlock.SetColor(_emissionId, fadingColor);
                 renderer.SetPropertyBlock(_propertyBlock);
             }
-        }, 0f, duration);
+
+            yield return null;
+        }
+
+        // Гарантированно выключаем подсветку после завершения
+        if (renderer != null)
+        {
+            MaterialPropertyBlock clearBlock = new MaterialPropertyBlock();
+            renderer.SetPropertyBlock(clearBlock);
+        }
     }
 
     /// <summary>
@@ -344,7 +368,7 @@ public class InteractionController : MonoBehaviour
         errorBlock.SetColor(_emissionId, errorColor);
         renderer.SetPropertyBlock(errorBlock);
 
-        // Быстрое затухание
+        // Быстрое затухание с полной очисткой в конце
         DG.Tweening.DOTween.To(() => 1f, x => {
             if (renderer != null)
             {
@@ -353,7 +377,16 @@ public class InteractionController : MonoBehaviour
                 errorBlock.SetColor(_emissionId, fadingColor);
                 renderer.SetPropertyBlock(errorBlock);
             }
-        }, 0f, 0.5f);
+        }, 0f, 1f)
+        .SetEase(Ease.InOutQuad)
+        .OnComplete(() => {
+            // Полностью убираем подсветку после завершения анимации
+            if (renderer != null)
+            {
+                MaterialPropertyBlock clearBlock = new MaterialPropertyBlock();
+                renderer.SetPropertyBlock(clearBlock);
+            }
+        });
     }
 
     /// <summary>

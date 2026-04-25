@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using AssemblyApp.Data;
 using System.Collections.Generic;
+using DG.Tweening;
 
 /// <summary>
 /// Отображает иерархию деталей в левой панели UI Toolkit.
@@ -218,7 +219,16 @@ public class HierarchyView : MonoBehaviour
                     block.SetColor(emissionId, fadingColor);
                     renderer.SetPropertyBlock(block);
                 }
-            }, 0f, 1f);
+            }, 0f, 2f)
+            .SetEase(Ease.InOutQuad)
+            .OnComplete(() => {
+                // Полностью убираем подсветку после завершения анимации
+                if (renderer != null)
+                {
+                    MaterialPropertyBlock clearBlock = new MaterialPropertyBlock();
+                    renderer.SetPropertyBlock(clearBlock);
+                }
+            });
         }
     }
 

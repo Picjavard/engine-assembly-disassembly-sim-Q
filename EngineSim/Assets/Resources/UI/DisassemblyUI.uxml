@@ -12,17 +12,25 @@
             <ui:Label name="PartNameLabel" text="Деталь: -" class="part-name" />
         </ui:VisualElement>
 		
-		<!-- Левая панель: Иерархия -->
-        <ui:VisualElement name="LeftPanel" class="left-panel">
-            <ui:Label name="HierarchyTitle" text="Иерархия" class="panel-title" />
-            <ui:VisualElement name="HierarchyTree" class="hierarchy-tree" />
-        </ui:VisualElement>
 
-        <!-- Правая панель: Информация о детали -->
-        <ui:VisualElement name="RightPanel" class="right-panel">
-            <ui:VisualElement name="InfoPanelContainer" class="info-panel-container">
-                <ui:Label name="InfoTitle" text="Информация о детали" class="info-title" />
-                <ui:Label name="InfoDescription" text="Выберите деталь в дереве или кликните на 3D-модель." class="info-description" />
+        <!-- Основной контейнер с панелями и 3D view -->
+        <ui:VisualElement name="MainContainer" class="main-container">
+
+            <!-- Левая панель: Иерархия -->
+            <ui:VisualElement name="LeftPanel" class="left-panel">
+                <ui:Label name="HierarchyTitle" text="Иерархия" class="panel-title" />
+                <ui:VisualElement name="HierarchyTree" class="hierarchy-tree" />
+            </ui:VisualElement>
+
+            <!-- Центральная область (3D View) -->
+            <ui:VisualElement name="CenterViewport" class="center-viewport" />
+
+            <!-- Правая панель: Информация о детали -->
+            <ui:VisualElement name="RightPanel" class="right-panel">
+                <ui:VisualElement name="InfoPanelContainer" class="info-panel-container">
+                    <ui:Label name="InfoTitle" text="Информация о детали" class="info-title" />
+                    <ui:Label name="InfoDescription" text="Выберите деталь в дереве или кликните на 3D-модель." class="info-description" />
+                </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
 
