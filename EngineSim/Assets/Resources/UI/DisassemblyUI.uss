@@ -1,0 +1,112 @@
+/* Корневой элемент */
+.root {
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 20px;
+    background-color: rgba(0, 0, 0, 0); /* Прозрачный фон */
+}
+
+/* Верхняя панель информации */
+.info-panel {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-top: 10px;
+    margin-left: 10px;
+}
+
+.step-label {
+    font-size: 18px;
+    color: #ffffff;
+    -unity-font-style: bold;
+    -unity-text-outline: 1px rgb(0, 0, 0);
+}
+
+.part-name {
+    font-size: 14px;
+    color: #ffd700; /* Золотистый */
+    margin-top: 5px;
+    -unity-text-outline: 1px rgba(0, 0, 0, 1);
+}
+
+/* Нижняя панель управления */
+.controls-panel {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+/* Группа кнопок действий */
+.action-group {
+    flex-direction: row;
+}
+
+/* Стили кнопок */
+.button {
+    min-width: 120px;
+    height: 40px;
+    background-color: rgba(40, 40, 40, 0.9);
+    border-radius: 8px;
+    border-width: 2px;
+    border-color: rgba(100, 100, 100, 1);
+    justify-content: center;
+    align-items: center;
+}
+
+.button:hover {
+    background-color: rgba(60, 60, 60, 1);
+    border-color: #ffd700;
+}
+
+.button:active {
+    background-color: #ffd700;
+    color: #000;
+}
+
+.button:disabled {
+    opacity: 0.5;
+}
+
+.button-label {
+    color: #ffffff;
+    font-size: 16px;
+    -unity-font-style: bold;
+}
+
+/* Группа прозрачности */
+.transparency-group {
+    flex-direction: column;
+    background-color: rgba(40, 40, 40, 0.8);
+    padding: 10px;
+    border-radius: 8px;
+    min-width: 150px;
+}
+
+.slider-label {
+    color: #ffffff;
+    font-size: 14px;
+    margin-bottom: 5px;
+}
+
+/* Слайдер */
+.slider {
+    height: 20px;
+}
+.slider .slider-background {
+    background-color: rgba(100, 100, 100, 1);
+    border-radius: 4px;
+}
+.slider .slider-filler {
+    background-color: #ffd700;
+    border-radius: 4px;
+}
+.slider .slider-handle {
+    background-color: #ffffff;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+}
