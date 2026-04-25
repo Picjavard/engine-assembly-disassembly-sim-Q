@@ -1,0 +1,31 @@
+{
+  "rootName": "V8 Engine Assembly",
+  "groups": [
+    {
+      "id": "group_block",
+      "name": "Блок цилиндров",
+      "children": [
+        {
+          "id": "part_cylinder_1",
+          "name": "Цилиндр №1",
+          "objectName": "Cylinder_01", 
+          "stepAssetName": "Step_Cylinder_Remove",
+          "description": "Основной рабочий цилиндр первого банка. Материал: чугун."
+        }
+      ]
+    },
+    {
+      "id": "group_pistons",
+      "name": "Поршневая группа",
+      "children": [
+        {
+          "id": "part_piston_1",
+          "name": "Поршень №1",
+          "objectName": "Piston_01",
+          "stepAssetName": "Step_Piston_Remove",
+          "description": "Алюминиевый поршень с кольцами. Требует предварительного снятия головки блока."
+        }
+      ]
+    }
+  ]
+}

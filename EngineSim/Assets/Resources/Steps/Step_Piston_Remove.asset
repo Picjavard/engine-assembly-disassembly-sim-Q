@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3eb94fc0e4b56fd4f989a0eb59f42aab, type: 3}
-  m_Name: Step_02_upleft
+  m_Name: Step_Piston_Remove
   m_EditorClassIdentifier: 
-  targetPosition: {x: 0, y: 2, z: 2}
-  targetRotation: {x: 0, y: 0, z: 0}
+  targetPosition: {x: 0, y: 2, z: 0}
+  targetRotation: {x: 0, y: 360, z: 0}
   duration: 1
   delay: 0
-  isRemovalStep: 1
+  isRemovalStep: 0
   description: 
