@@ -1,173 +1,180 @@
 using UnityEngine;
+using DG.Tweening;
 
 /// <summary>
-/// Контроллер орбитальной камеры для вращения и зума вокруг точки интереса.
-/// Не использует Cinemachine для максимальной производительности и простоты.
+/// Контроллер орбитальной камеры.
+/// Позволяет вращать камеру вокруг цели и приближать/отдалять её.
 /// </summary>
-[RequireComponent(typeof(Camera))]
 public class OrbitCameraController : MonoBehaviour
 {
     [Header("Настройки цели")]
-    [Tooltip("Точка, вокруг которой вращается камера. Если null, используется (0,0,0).")]
-    [SerializeField] private Transform _target;
+    [Tooltip("Точка, вокруг которой вращается камера (Pivot)")]
+    public Vector3 targetPoint = Vector3.zero;
 
-    [Header("Параметры вращения")]
-    [Tooltip("Скорость вращения камеры мышью.")]
-    [SerializeField] private float _rotationSpeed = 120f;
-    [Tooltip("Минимальный угол возвышения камеры (защита от переворота вниз).")]
-    [SerializeField] private float _minVerticalAngle = -80f;
-    [Tooltip("Максимальный угол возвышения камеры.")]
-    [SerializeField] private float _maxVerticalAngle = 80f;
+    [Header("Настройки вращения")]
+    [Tooltip("Скорость вращения мышью")]
+    public float rotateSpeed = 5f;
+    
+    [Tooltip("Минимальный угол по вертикали (чтобы не уйти под землю)")]
+    public float minVerticalAngle = -80f;
+    
+    [Tooltip("Максимальный угол по вертикали")]
+    public float maxVerticalAngle = 80f;
 
-    [Header("Параметры зума")]
-    [Tooltip("Скорость приближения/удаления колесиком мыши.")]
-    [SerializeField] private float _zoomSpeed = 5f;
-    [Tooltip("Минимальное расстояние до цели.")]
-    [SerializeField] private float _minDistance = 2f;
-    [Tooltip("Максимальное расстояние до цели.")]
-    [SerializeField] private float _maxDistance = 20f;
-    [Tooltip("Текущее расстояние (начальное значение).")]
-    [SerializeField] private float _currentDistance = 10f;
+    [Header("Настройки зума")]
+    [Tooltip("Текущая дистанция до цели")]
+    public float currentDistance = 10f;
+    
+    [Tooltip("Минимальная дистанция зума")]
+    public float minDistance = 2f;
+    
+    [Tooltip("Максимальная дистанция зума")]
+    public float maxDistance = 20f;
+    
+    [Tooltip("Скорость зума колесиком")]
+    public float zoomSpeed = 2f;
 
-    [Header("Настройки инерции (опционально)")]
-    [Tooltip("Плавность следования камеры (0 = мгновенно, 1 = очень медленно).")]
-    [Range(0f, 0.95f)]
-    [SerializeField] private float _smoothness = 0.1f;
+    [Header("Настройки анимации фокуса")]
+    [Tooltip("Длительность плавного перелета к новой цели")]
+    public float focusDuration = 1.0f;
+    
+    [Tooltip("Тип плавности анимации фокуса")]
+    public Ease focusEase = Ease.InOutQuad;
 
-    // Внутренние переменные состояния
-    private Vector3 _currentTargetPosition;
-    private float _horizontalAngle;
-    private float _verticalAngle;
-    private float _targetDistance;
+    // Внутренние переменные для углов
+    private float _horizontalAngle = 0f;
+    private float _verticalAngle = 10f;
     
     // Ссылка на трансформ для кэширования
-    private Transform _cameraTransform;
+    private Transform _camTransform;
 
     private void Awake()
     {
-        _cameraTransform = transform;
-        
-        // Инициализация углов на основе текущего положения камеры, 
-        // чтобы не было скачка при старте
-        InitializeAngles();
-    }
-
-    private void Start()
-    {
-        if (_target == null)
-        {
-            // Создаем пустой объект в центре, если цель не задана
-            GameObject centerPivot = new GameObject("CameraPivot");
-            centerPivot.transform.position = Vector3.zero;
-            _target = centerPivot.transform;
-        }
-        
-        _currentTargetPosition = _target.position;
-        _targetDistance = Mathf.Clamp(_currentDistance, _minDistance, _maxDistance);
-    }
-
-    /// <summary>
-    /// Вычисляет начальные углы сферических координат на основе позиции камеры в редакторе.
-    /// </summary>
-    private void InitializeAngles()
-    {
-        if (_target == null) return;
-
-        Vector3 direction = _cameraTransform.position - _target.position;
-        
-        // Горизонтальный угол (вокруг оси Y)
-        _horizontalAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
-        
-        // Вертикальный угол (вверх-вниз)
-        float horizontalDist = new Vector3(direction.x, 0, direction.z).magnitude;
-        _verticalAngle = Mathf.Atan2(direction.y, horizontalDist) * Mathf.Rad2Deg;
+        _camTransform = transform;
+        // Инициализируем углы текущим положением, если нужно, 
+        // но проще начать с дефолтных значений или вычислить из текущей позиции
+        UpdateCameraPosition();
     }
 
     private void LateUpdate()
     {
-        // Обновляем позицию цели на случай, если она двигается (хотя в разборе обычно статична)
-        if (_target != null)
-        {
-            _currentTargetPosition = _target.position;
-        }
-
-        HandleInput();
-        UpdateCameraPosition();
-    }
-
-    /// <summary>
-    /// Обработка ввода пользователя (Мышь).
-    /// </summary>
-    private void HandleInput()
-    {
-        // Вращение: Левая кнопка мыши (или перетаскивание)
-        // Используем GetMouseButton для постоянного вращения при зажатии
-        if (Input.GetMouseButton(0)) 
+        // Обработка вращения мышью
+        if (Input.GetMouseButton(0)) // ЛКМ для вращения (можно изменить на правую кнопку если нужно)
         {
             float mouseX = Input.GetAxis("Mouse X");
             float mouseY = Input.GetAxis("Mouse Y");
 
-            _horizontalAngle += mouseX * _rotationSpeed * Time.deltaTime;
-            _verticalAngle -= mouseY * _rotationSpeed * Time.deltaTime;
+            _horizontalAngle += mouseX * rotateSpeed;
+            _verticalAngle -= mouseY * rotateSpeed;
 
-            // Ограничение вертикального угла (чтобы камера не ушла под землю или не перевернулась)
-            _verticalAngle = Mathf.Clamp(_verticalAngle, _minVerticalAngle, _maxVerticalAngle);
+            // Ограничение вертикального угла
+            _verticalAngle = Mathf.Clamp(_verticalAngle, minVerticalAngle, maxVerticalAngle);
         }
 
-        // Зум: Колесико мыши
+        // Обработка зума колесиком
         float scrollWheel = Input.GetAxis("Mouse ScrollWheel");
         if (Mathf.Abs(scrollWheel) > 0.01f)
         {
-            _targetDistance -= scrollWheel * _zoomSpeed * 10f; // Умножаем на 10 для чувствительности
-            _targetDistance = Mathf.Clamp(_targetDistance, _minDistance, _maxDistance);
+            currentDistance -= scrollWheel * zoomSpeed * 10f;
+            currentDistance = Mathf.Clamp(currentDistance, minDistance, maxDistance);
         }
+
+        UpdateCameraPosition();
     }
 
     /// <summary>
-    /// Применяет вычисленные сферические координаты к позиции камеры.
+    /// Обновляет позицию камеры на основе углов и дистанции
     /// </summary>
     private void UpdateCameraPosition()
     {
-        // Плавное изменение дистанции (Lerp)
-        float currentDist = Mathf.Lerp(_cameraTransform.localPosition.magnitude, _targetDistance, 1f - _smoothness);
-        
-        // Пересчет текущей дистанции с учетом плавности, если нужно строго следовать за целевой
-        // Для простоты прототипа используем прямое присваивание с небольшим сглаживанием позиции
-        
-        // Конвертация сферических координат в декартовы
+        // Вычисляем позицию камеры в сферических координатах
         float radH = _horizontalAngle * Mathf.Deg2Rad;
         float radV = _verticalAngle * Mathf.Deg2Rad;
 
-        Vector3 offset = Vector3.zero;
-        offset.x = currentDist * Mathf.Sin(radH) * Mathf.Cos(radV);
-        offset.y = currentDist * Mathf.Sin(radV);
-        offset.z = currentDist * Mathf.Cos(radH) * Mathf.Cos(radV);
+        float sinV = Mathf.Sin(radV);
+        float cosV = Mathf.Cos(radV);
+        float sinH = Mathf.Sin(radH);
+        float cosH = Mathf.Cos(radH);
 
-        Vector3 desiredPosition = _currentTargetPosition + offset;
+        Vector3 offset = new Vector3(
+            cosV * sinH * currentDistance,
+            sinV * currentDistance,
+            cosV * cosH * currentDistance
+        );
 
-        // Плавное движение самой камеры к нужной точке
-        _cameraTransform.position = Vector3.Lerp(_cameraTransform.position, desiredPosition, 1f - _smoothness);
+        Vector3 newPosition = targetPoint + offset;
         
-        // Камера всегда смотрит на цель
-        _cameraTransform.LookAt(_currentTargetPosition);
+        _camTransform.position = newPosition;
+        _camTransform.LookAt(targetPoint);
+    }
+
+    // ==========================================================
+    // НОВЫЕ МЕТОДЫ ДЛЯ ПРОГРАММНОГО УПРАВЛЕНИЯ (API)
+    // ==========================================================
+
+    /// <summary>
+    /// Плавно перемещает точку фокуса (pivot) камеры в новую позицию.
+    /// Используется при клике на деталь в иерархии.
+    /// </summary>
+    /// <param name="newTarget">Новая целевая точка (позиция объекта)</param>
+    public void SetFocusPoint(Vector3 newTarget)
+    {
+        // Прерываем предыдущую анимацию фокуса, если она была
+        DOTween.Kill("FocusTween");
+
+        // Анимируем изменение поля targetPoint
+        Vector3 startTarget = targetPoint;
+        
+        DOTween.To(
+            () => targetPoint, 
+            x => targetPoint = x, 
+            newTarget, 
+            focusDuration
+        )
+        .SetId("FocusTween")
+        .SetEase(focusEase)
+        .OnUpdate(() => UpdateCameraPosition()); // Обновляем позицию камеры каждый кадр анимации
     }
 
     /// <summary>
-    /// Публичный метод для сброса камеры (можно вызвать из UI).
+    /// Мгновенно устанавливает точку фокуса (без анимации).
+    /// Полезно для сброса или начальной настройки.
+    /// </summary>
+    public void SetFocusPointInstant(Vector3 newTarget)
+    {
+        DOTween.Kill("FocusTween");
+        targetPoint = newTarget;
+        UpdateCameraPosition();
+    }
+
+    /// <summary>
+    /// Плавно изменяет дистанцию камеры (Зум).
+    /// </summary>
+    /// <param name="newDistance">Новая дистанция</param>
+    public void SetTargetDistance(float newDistance)
+    {
+        newDistance = Mathf.Clamp(newDistance, minDistance, maxDistance);
+
+        DOTween.Kill("ZoomTween");
+
+        DOTween.To(
+            () => currentDistance,
+            x => currentDistance = x,
+            newDistance,
+            focusDuration
+        )
+        .SetId("ZoomTween")
+        .SetEase(focusEase);
+    }
+
+    /// <summary>
+    /// Сброс камеры в исходное состояние (центр сцены, стандартный зум).
     /// </summary>
     public void ResetCamera()
     {
+        SetFocusPoint(Vector3.zero);
+        SetTargetDistance(10f); // Или любое значение по умолчанию
         _horizontalAngle = 0f;
-        _verticalAngle = 20f; // Немного сверху
-        _targetDistance = 10f;
-    }
-    
-    /// <summary>
-    /// Установка новой цели для камеры (если модель смещена).
-    /// </summary>
-    public void SetTarget(Transform newTarget)
-    {
-        _target = newTarget;
-        if(_target != null) _currentTargetPosition = _target.position;
+        _verticalAngle = 10f;
     }
 }

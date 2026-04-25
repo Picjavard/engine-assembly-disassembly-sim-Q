@@ -619,6 +619,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 929162414}
+  - component: {fileID: 929162415}
   m_Layer: 0
   m_Name: DataManager
   m_TagString: Untagged
@@ -641,6 +642,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &929162415
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 929162413}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdbd9484e64d2348a32a577b0f5283e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  jsonFileName: AssemblyData
 --- !u!1 &963194225
 GameObject:
   m_ObjectHideFlags: 0
@@ -747,15 +761,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 436efbf0ee7799f40a8f56424649cece, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _target: {fileID: 0}
-  _rotationSpeed: 360
-  _minVerticalAngle: -80
-  _maxVerticalAngle: 80
-  _zoomSpeed: 1
-  _minDistance: 2
-  _maxDistance: 20
-  _currentDistance: 10
-  _smoothness: 0.1
+  targetPoint: {x: 0, y: 0, z: 0}
+  rotateSpeed: 5
+  minVerticalAngle: -80
+  maxVerticalAngle: 80
+  currentDistance: 10
+  minDistance: 2
+  maxDistance: 20
+  zoomSpeed: 2
+  focusDuration: 1
+  focusEase: 7
 --- !u!114 &963194230
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1046,31 +1061,31 @@ MonoBehaviour:
     onClick:
       m_PersistentCalls:
         m_Calls:
-        - m_Target: {fileID: 2129739028}
-          m_TargetAssemblyTypeName: SequenceManager, Assembly-CSharp
-          m_MethodName: NextStep
-          m_Mode: 1
+        - m_Target: {fileID: 963194229}
+          m_TargetAssemblyTypeName: OrbitCameraController, Assembly-CSharp
+          m_MethodName: SetTargetDistance
+          m_Mode: 4
           m_Arguments:
             m_ObjectArgument: {fileID: 0}
             m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
             m_IntArgument: 0
-            m_FloatArgument: 0
+            m_FloatArgument: 3
             m_StringArgument: 
             m_BoolArgument: 0
           m_CallState: 2
-  - buttonName: Prev
+  - buttonName: Next
     onClick:
       m_PersistentCalls:
         m_Calls:
-        - m_Target: {fileID: 2129739028}
-          m_TargetAssemblyTypeName: SequenceManager, Assembly-CSharp
-          m_MethodName: PreviousStep
+        - m_Target: {fileID: 963194229}
+          m_TargetAssemblyTypeName: OrbitCameraController, Assembly-CSharp
+          m_MethodName: ResetCamera
           m_Mode: 1
           m_Arguments:
             m_ObjectArgument: {fileID: 0}
             m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
             m_IntArgument: 0
-            m_FloatArgument: 0
+            m_FloatArgument: 3
             m_StringArgument: 
             m_BoolArgument: 0
           m_CallState: 2
