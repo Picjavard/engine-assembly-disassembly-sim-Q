@@ -167,7 +167,7 @@ public class HierarchyView : MonoBehaviour
                 cameraController.FocusOnObject(partObject, 1.5f, 3f);
             }
 
-            // Подсветка на 1 секунду
+            // Подсветка на 1 секунду (теперь с плавным нарастанием и затуханием)
             HighlightPartTemporarily(partObject);
 
             // Выделение в дереве
@@ -190,46 +190,61 @@ public class HierarchyView : MonoBehaviour
     }
 
     /// <summary>
-    /// Временная подсветка детали при выборе в дереве
+    /// Временная подсветка детали при выборе в дереве.
+    /// Плавное нарастание (0.25 сек) и плавное затухание (0.25 сек) = всего 0.5 сек.
     /// </summary>
     private void HighlightPartTemporarily(GameObject target)
     {
         if (highlighter == null || target == null) return;
 
-        // Применяем подсветку через MaterialPropertyBlock
         Renderer renderer = target.GetComponent<Renderer>();
-        if (renderer != null)
-        {
-            MaterialPropertyBlock block = new MaterialPropertyBlock();
-            renderer.GetPropertyBlock(block);
+        if (renderer == null) return;
 
-            // Устанавливаем цвет эмиссии (золотистый)
-            Color highlightColor = new Color(1f, 0.8f, 0f, 1f) * 0.8f;
-            int emissionId = Shader.PropertyToID("_EmissionColor");
-            block.SetColor(emissionId, highlightColor);
+        // Применяем подсветку через MaterialPropertyBlock
+        MaterialPropertyBlock block = new MaterialPropertyBlock();
+        int emissionId = Shader.PropertyToID("_EmissionColor");
 
-            renderer.SetPropertyBlock(block);
+        // Целевой цвет подсветки (золотистый)
+        Color highlightColor = new Color(1f, 0.8f, 0f, 1f) * 0.8f;
 
-            // Сброс подсветки через 1 секунду с помощью DOTween
-            DG.Tweening.DOTween.To(() => 1f, x => {
-                if (renderer != null)
+        // Используем DOTween для плавной анимации: нарастание + затухание
+        float elapsedTime = 0f;
+        float fadeDuration = 0.5f; // Общая длительность
+
+        DG.Tweening.DOTween.To(() => 0f, x => {
+            elapsedTime = x;
+
+            if (renderer != null)
+            {
+                renderer.GetPropertyBlock(block);
+
+                // Рассчитываем коэффициент прозрачности с плавным нарастанием и затуханием
+                float alpha;
+                if (x < fadeDuration / 2f)
                 {
-                    renderer.GetPropertyBlock(block);
-                    Color fadingColor = highlightColor * (1f - x);
-                    block.SetColor(emissionId, fadingColor);
-                    renderer.SetPropertyBlock(block);
+                    // Первая половина: плавное нарастание (0 -> 1)
+                    alpha = Mathf.SmoothStep(0f, 1f, (x / (fadeDuration / 2f)));
                 }
-            }, 0f, 2f)
-            .SetEase(Ease.InOutQuad)
-            .OnComplete(() => {
-                // Полностью убираем подсветку после завершения анимации
-                if (renderer != null)
+                else
                 {
-                    MaterialPropertyBlock clearBlock = new MaterialPropertyBlock();
-                    renderer.SetPropertyBlock(clearBlock);
+                    // Вторая половина: плавное затухание (1 -> 0)
+                    alpha = Mathf.SmoothStep(1f, 0f, ((x - fadeDuration / 2f) / (fadeDuration / 2f)));
                 }
-            });
-        }
+
+                Color currentColor = highlightColor * alpha;
+                block.SetColor(emissionId, currentColor);
+                renderer.SetPropertyBlock(block);
+            }
+        }, 0f, fadeDuration)
+        .SetEase(Ease.InOutQuad)
+        .OnComplete(() => {
+            // Полностью убираем подсветку после завершения анимации
+            if (renderer != null)
+            {
+                MaterialPropertyBlock clearBlock = new MaterialPropertyBlock();
+                renderer.SetPropertyBlock(clearBlock);
+            }
+        });
     }
 
     /// <summary>

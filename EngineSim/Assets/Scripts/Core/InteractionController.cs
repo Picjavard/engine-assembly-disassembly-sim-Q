@@ -44,9 +44,7 @@ public class InteractionController : MonoBehaviour
     private GameObject _currentSelectedObject;
     private AssemblyNode _currentSelectedNode;
 
-    // MaterialPropertyBlock для подсветки
-    private MaterialPropertyBlock _propertyBlock;
-    private Renderer _currentRenderer;
+    // MaterialPropertyBlock для подсветки (используется только в FlashError)
     private int _emissionId;
 
     private Camera _cam;
@@ -54,7 +52,6 @@ public class InteractionController : MonoBehaviour
     private void Awake()
     {
         _cam = GetComponent<Camera>();
-        _propertyBlock = new MaterialPropertyBlock();
         _emissionId = Shader.PropertyToID("_EmissionColor");
 
         if (_cam == null)
@@ -300,7 +297,8 @@ public class InteractionController : MonoBehaviour
     }
 
     /// <summary>
-    /// Подсветка объекта на заданное время с гарантированным отключением
+    /// Подсветка объекта на заданное время с плавным нарастанием и затуханием.
+    /// Общая длительность 0.5 сек: 0.25 сек нарастание + 0.25 сек затухание.
     /// </summary>
     private void HighlightObject(GameObject target, float duration)
     {
@@ -309,50 +307,47 @@ public class InteractionController : MonoBehaviour
         Renderer renderer = target.GetComponent<Renderer>();
         if (renderer == null) return;
 
-        _currentRenderer = renderer;
-        renderer.GetPropertyBlock(_propertyBlock);
+        MaterialPropertyBlock block = new MaterialPropertyBlock();
+        int emissionId = _emissionId;
+        Color targetColor = highlightColor * 0.8f;
 
-        Color finalColor = highlightColor * 0.8f;
-        _propertyBlock.SetColor(_emissionId, finalColor);
-        renderer.SetPropertyBlock(_propertyBlock);
-
-        // Запускаем корутину для затухания и гарантированного отключения
-        StartCoroutine(HighlightFadeRoutine(renderer, finalColor, duration));
-    }
-
-    /// <summary>
-    /// Корутина плавного затухания подсветки
-    /// </summary>
-    private System.Collections.IEnumerator HighlightFadeRoutine(Renderer renderer, Color startColor, float duration)
-    {
-        float elapsed = 0f;
-
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-            float t = Mathf.Clamp01(elapsed / duration);
-
+        // Используем DOTween для плавной анимации: нарастание + затухание
+        DG.Tweening.DOTween.To(() => 0f, x => {
             if (renderer != null)
             {
-                renderer.GetPropertyBlock(_propertyBlock);
-                Color fadingColor = startColor * (1f - t);
-                _propertyBlock.SetColor(_emissionId, fadingColor);
-                renderer.SetPropertyBlock(_propertyBlock);
+                renderer.GetPropertyBlock(block);
+
+                // Рассчитываем коэффициент прозрачности с плавным нарастанием и затуханием
+                float alpha;
+                if (x < duration / 2f)
+                {
+                    // Первая половина: плавное нарастание (0 -> 1)
+                    alpha = Mathf.SmoothStep(0f, 1f, (x / (duration / 2f)));
+                }
+                else
+                {
+                    // Вторая половина: плавное затухание (1 -> 0)
+                    alpha = Mathf.SmoothStep(1f, 0f, ((x - duration / 2f) / (duration / 2f)));
+                }
+
+                Color currentColor = targetColor * alpha;
+                block.SetColor(emissionId, currentColor);
+                renderer.SetPropertyBlock(block);
             }
-
-            yield return null;
-        }
-
-        // Гарантированно выключаем подсветку после завершения
-        if (renderer != null)
-        {
-            MaterialPropertyBlock clearBlock = new MaterialPropertyBlock();
-            renderer.SetPropertyBlock(clearBlock);
-        }
+        }, 0f, duration)
+        .SetEase(Ease.InOutQuad)
+        .OnComplete(() => {
+            // Гарантированно выключаем подсветку после завершения
+            if (renderer != null)
+            {
+                MaterialPropertyBlock clearBlock = new MaterialPropertyBlock();
+                renderer.SetPropertyBlock(clearBlock);
+            }
+        });
     }
 
     /// <summary>
-    /// Красная вспышка при ошибке
+    /// Красная вспышка при ошибке (плавное нарастание и затухание за 0.5 сек)
     /// </summary>
     private void FlashError(PartController part)
     {
@@ -361,23 +356,35 @@ public class InteractionController : MonoBehaviour
         Renderer renderer = part.GetComponent<Renderer>();
         if (renderer == null) return;
 
-        MaterialPropertyBlock errorBlock = new MaterialPropertyBlock();
-        renderer.GetPropertyBlock(errorBlock);
-
+        MaterialPropertyBlock block = new MaterialPropertyBlock();
+        int emissionId = Shader.PropertyToID("_EmissionColor");
         Color errorColor = new Color(1f, 0f, 0f, 1f) * 0.8f;
-        errorBlock.SetColor(_emissionId, errorColor);
-        renderer.SetPropertyBlock(errorBlock);
+        float flashDuration = 0.5f;
 
-        // Быстрое затухание с полной очисткой в конце
-        DG.Tweening.DOTween.To(() => 1f, x => {
+        // Используем DOTween для плавной анимации: нарастание + затухание
+        DG.Tweening.DOTween.To(() => 0f, x => {
             if (renderer != null)
             {
-                renderer.GetPropertyBlock(errorBlock);
-                Color fadingColor = errorColor * (1f - x);
-                errorBlock.SetColor(_emissionId, fadingColor);
-                renderer.SetPropertyBlock(errorBlock);
+                renderer.GetPropertyBlock(block);
+
+                // Рассчитываем коэффициент прозрачности с плавным нарастанием и затуханием
+                float alpha;
+                if (x < flashDuration / 2f)
+                {
+                    // Первая половина: плавное нарастание (0 -> 1)
+                    alpha = Mathf.SmoothStep(0f, 1f, (x / (flashDuration / 2f)));
+                }
+                else
+                {
+                    // Вторая половина: плавное затухание (1 -> 0)
+                    alpha = Mathf.SmoothStep(1f, 0f, ((x - flashDuration / 2f) / (flashDuration / 2f)));
+                }
+
+                Color currentColor = errorColor * alpha;
+                block.SetColor(emissionId, currentColor);
+                renderer.SetPropertyBlock(block);
             }
-        }, 0f, 1f)
+        }, 0f, flashDuration)
         .SetEase(Ease.InOutQuad)
         .OnComplete(() => {
             // Полностью убираем подсветку после завершения анимации
