@@ -1,5 +1,6 @@
 using UnityEngine;
 using DG.Tweening;
+using AssemblyApp.Data;
 
 /// <summary>
 /// Контроллер взаимодействия с 3D-объектами.
