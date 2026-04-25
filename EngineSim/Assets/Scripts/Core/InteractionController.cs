@@ -1,5 +1,4 @@
 using UnityEngine;
-using AssemblyApp.Data;
 using DG.Tweening;
 
 /// <summary>
@@ -31,7 +30,7 @@ public class InteractionController : MonoBehaviour
     public LayerMask partsLayer;
 
     [Tooltip("Длительность подсветки при клике (сек)")]
-    public float highlightDuration = 1.0f;
+    public float highlightDuration = 0.5f;
 
     [Tooltip("Цвет подсветки при выделении")]
     public Color highlightColor = new Color(1f, 0.8f, 0f, 1f);
@@ -44,8 +43,9 @@ public class InteractionController : MonoBehaviour
     private GameObject _currentSelectedObject;
     private AssemblyNode _currentSelectedNode;
 
-    // MaterialPropertyBlock для подсветки (используется только в FlashError)
+    // MaterialPropertyBlock для подсветки
     private int _emissionId;
+    private MaterialPropertyBlock _block;
 
     private Camera _cam;
 
@@ -53,6 +53,7 @@ public class InteractionController : MonoBehaviour
     {
         _cam = GetComponent<Camera>();
         _emissionId = Shader.PropertyToID("_EmissionColor");
+        _block = new MaterialPropertyBlock();
 
         if (_cam == null)
         {
@@ -117,7 +118,7 @@ public class InteractionController : MonoBehaviour
         // Находим данные узла по объекту
         _currentSelectedNode = FindNodeByObjectName(hitObject.name);
 
-        // Подсветка
+        // Подсветка с плавным нарастанием и затуханием
         HighlightObject(hitObject, highlightDuration);
 
         // Обновление информационной панели
@@ -298,7 +299,7 @@ public class InteractionController : MonoBehaviour
 
     /// <summary>
     /// Подсветка объекта на заданное время с плавным нарастанием и затуханием.
-    /// Общая длительность 0.5 сек: 0.25 сек нарастание + 0.25 сек затухание.
+    /// Общая длительность: 0.5 сек (0.25 сек нарастание + 0.25 сек затухание).
     /// </summary>
     private void HighlightObject(GameObject target, float duration)
     {
@@ -307,41 +308,39 @@ public class InteractionController : MonoBehaviour
         Renderer renderer = target.GetComponent<Renderer>();
         if (renderer == null) return;
 
-        MaterialPropertyBlock block = new MaterialPropertyBlock();
-        int emissionId = _emissionId;
         Color targetColor = highlightColor * 0.8f;
+        float halfDuration = duration / 2f;
 
         // Используем DOTween для плавной анимации: нарастание + затухание
         DG.Tweening.DOTween.To(() => 0f, x => {
-            if (renderer != null)
+            if (renderer == null) return;
+
+            renderer.GetPropertyBlock(_block);
+
+            // Рассчитываем коэффициент с плавным нарастанием и затуханием
+            float alpha;
+            if (x < halfDuration)
             {
-                renderer.GetPropertyBlock(block);
-
-                // Рассчитываем коэффициент прозрачности с плавным нарастанием и затуханием
-                float alpha;
-                if (x < duration / 2f)
-                {
-                    // Первая половина: плавное нарастание (0 -> 1)
-                    alpha = Mathf.SmoothStep(0f, 1f, (x / (duration / 2f)));
-                }
-                else
-                {
-                    // Вторая половина: плавное затухание (1 -> 0)
-                    alpha = Mathf.SmoothStep(1f, 0f, ((x - duration / 2f) / (duration / 2f)));
-                }
-
-                Color currentColor = targetColor * alpha;
-                block.SetColor(emissionId, currentColor);
-                renderer.SetPropertyBlock(block);
+                // Первая половина: плавное нарастание (0 -> 1)
+                alpha = Mathf.SmoothStep(0f, 1f, (x / halfDuration));
             }
+            else
+            {
+                // Вторая половина: плавное затухание (1 -> 0)
+                alpha = Mathf.SmoothStep(1f, 0f, ((x - halfDuration) / halfDuration));
+            }
+
+            Color currentColor = targetColor * alpha;
+            _block.SetColor(_emissionId, currentColor);
+            renderer.SetPropertyBlock(_block);
         }, 0f, duration)
-        .SetEase(Ease.InOutQuad)
+        .SetEase(DG.Tweening.Ease.Linear)
         .OnComplete(() => {
             // Гарантированно выключаем подсветку после завершения
             if (renderer != null)
             {
-                MaterialPropertyBlock clearBlock = new MaterialPropertyBlock();
-                renderer.SetPropertyBlock(clearBlock);
+                _block.Clear();
+                renderer.SetPropertyBlock(_block);
             }
         });
     }
@@ -356,42 +355,40 @@ public class InteractionController : MonoBehaviour
         Renderer renderer = part.GetComponent<Renderer>();
         if (renderer == null) return;
 
-        MaterialPropertyBlock block = new MaterialPropertyBlock();
-        int emissionId = Shader.PropertyToID("_EmissionColor");
         Color errorColor = new Color(1f, 0f, 0f, 1f) * 0.8f;
         float flashDuration = 0.5f;
+        float halfDuration = flashDuration / 2f;
 
         // Используем DOTween для плавной анимации: нарастание + затухание
         DG.Tweening.DOTween.To(() => 0f, x => {
-            if (renderer != null)
+            if (renderer == null) return;
+
+            renderer.GetPropertyBlock(_block);
+
+            // Рассчитываем коэффициент с плавным нарастанием и затуханием
+            float alpha;
+            if (x < halfDuration)
             {
-                renderer.GetPropertyBlock(block);
-
-                // Рассчитываем коэффициент прозрачности с плавным нарастанием и затуханием
-                float alpha;
-                if (x < flashDuration / 2f)
-                {
-                    // Первая половина: плавное нарастание (0 -> 1)
-                    alpha = Mathf.SmoothStep(0f, 1f, (x / (flashDuration / 2f)));
-                }
-                else
-                {
-                    // Вторая половина: плавное затухание (1 -> 0)
-                    alpha = Mathf.SmoothStep(1f, 0f, ((x - flashDuration / 2f) / (flashDuration / 2f)));
-                }
-
-                Color currentColor = errorColor * alpha;
-                block.SetColor(emissionId, currentColor);
-                renderer.SetPropertyBlock(block);
+                // Первая половина: плавное нарастание (0 -> 1)
+                alpha = Mathf.SmoothStep(0f, 1f, (x / halfDuration));
             }
+            else
+            {
+                // Вторая половина: плавное затухание (1 -> 0)
+                alpha = Mathf.SmoothStep(1f, 0f, ((x - halfDuration) / halfDuration));
+            }
+
+            Color currentColor = errorColor * alpha;
+            _block.SetColor(_emissionId, currentColor);
+            renderer.SetPropertyBlock(_block);
         }, 0f, flashDuration)
-        .SetEase(Ease.InOutQuad)
+        .SetEase(DG.Tweening.Ease.Linear)
         .OnComplete(() => {
             // Полностью убираем подсветку после завершения анимации
             if (renderer != null)
             {
-                MaterialPropertyBlock clearBlock = new MaterialPropertyBlock();
-                renderer.SetPropertyBlock(clearBlock);
+                _block.Clear();
+                renderer.SetPropertyBlock(_block);
             }
         });
     }
