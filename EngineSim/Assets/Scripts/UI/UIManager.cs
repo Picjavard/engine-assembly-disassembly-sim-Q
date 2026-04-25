@@ -15,6 +15,11 @@ public class UIManager : MonoBehaviour
     [Tooltip("Ссылка на хайлайтер (для прозрачности)")]
     public RaycastHighlighter highlighter;
 
+    [Tooltip("Ссылка на панель информации о детали")]
+    public PartInfoPanel infoPanel;
+
+    [Tooltip("Ссылка на представление иерархии")]
+    public HierarchyView hierarchyView;
     // Элементы UI
     private Label _stepLabel;
     private Label _partNameLabel;
@@ -25,6 +30,9 @@ public class UIManager : MonoBehaviour
 
     // Список всех деталей для расчета прозрачности
     private List<Renderer> _allRenderers = new List<Renderer>();
+
+    // Текущая выбранная деталь (для обновления UI)
+    private string _currentSelectedPartName = "-";
 
     private void Awake()
     {
@@ -72,6 +80,8 @@ public class UIManager : MonoBehaviour
         }
 
         UpdateUI();
+        
+        Debug.Log("[UIManager] Инициализация завершена.");
     }
 
     private void OnNextClicked()
@@ -129,6 +139,13 @@ public class UIManager : MonoBehaviour
     {
         UpdateUI();
     }
+        /// <summary>
+    /// Публичный метод для обновления имени выбранной детали извне
+    /// </summary>
+    public void SetSelectedPartName(string name)
+    {
+        _currentSelectedPartName = !string.IsNullOrEmpty(name) ? name : "-";
+    }
 
     private void UpdateUI()
     {
@@ -137,7 +154,7 @@ public class UIManager : MonoBehaviour
         // Подсчет шагов
         int totalSteps = sequenceManager != null ? sequenceManager.allParts.Count : 0;
         int currentSteps = 0;
-        string lastPartName = "-";
+        string lastPartName = _currentSelectedPartName;
 
         if (sequenceManager != null)
         {
@@ -146,13 +163,17 @@ public class UIManager : MonoBehaviour
                 if (part.isDisassembled)
                 {
                     currentSteps++;
-                    lastPartName = part.name; // Или part.associatedStep.description
+                    // Обновляем имя последней разобранной детали, если не выбрано ничего другого
+                    if (string.IsNullOrEmpty(_currentSelectedPartName) || _currentSelectedPartName == "-")
+                    {
+                        lastPartName = part.name;
+                    }
                 }
             }
         }
 
         _stepLabel.text = $"Шаг: {currentSteps} / {totalSteps}";
-        _partNameLabel.text = $"Последняя деталь: {lastPartName}";
+       _partNameLabel.text = $"Деталь: {lastPartName}";
 
         // Блокировка кнопок во время анимации
         bool isAnimating = sequenceManager != null && sequenceManager.isAnimating;

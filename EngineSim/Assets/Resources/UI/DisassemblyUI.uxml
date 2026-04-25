@@ -6,10 +6,24 @@
     <!-- Корневой контейнер -->
     <ui:VisualElement name="root" class="root">
         
-        <!-- Верхняя инфо-панель -->
-        <ui:VisualElement name="InfoPanel" class="info-panel">
+        <!-- Верхняя инфо-панель (по центру) -->
+        <ui:VisualElement name="TopInfoPanel" class="top-info-panel">
             <ui:Label name="StepLabel" text="Шаг: 0 / 0" class="step-label" />
             <ui:Label name="PartNameLabel" text="Деталь: -" class="part-name" />
+        </ui:VisualElement>
+		
+		<!-- Левая панель: Иерархия -->
+        <ui:VisualElement name="LeftPanel" class="left-panel">
+            <ui:Label name="HierarchyTitle" text="Иерархия" class="panel-title" />
+            <ui:VisualElement name="HierarchyTree" class="hierarchy-tree" />
+        </ui:VisualElement>
+
+        <!-- Правая панель: Информация о детали -->
+        <ui:VisualElement name="RightPanel" class="right-panel">
+            <ui:VisualElement name="InfoPanelContainer" class="info-panel-container">
+                <ui:Label name="InfoTitle" text="Информация о детали" class="info-title" />
+                <ui:Label name="InfoDescription" text="Выберите деталь в дереве или кликните на 3D-модель." class="info-description" />
+            </ui:VisualElement>
         </ui:VisualElement>
 
         <!-- Нижняя панель управления -->
