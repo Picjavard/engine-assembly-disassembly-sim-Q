@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using DG.Tweening;
 using AssemblyApp.Data;
 
@@ -50,11 +51,17 @@ public class InteractionController : MonoBehaviour
 
     private Camera _cam;
 
+    // Ссылки на действия New Input System
+    private Mouse _mouse;
+
     private void Awake()
     {
         _cam = GetComponent<Camera>();
         _emissionId = Shader.PropertyToID("_EmissionColor");
         _block = new MaterialPropertyBlock();
+
+        // Инициализация New Input System
+        _mouse = Mouse.current;
 
         if (_cam == null)
         {
@@ -69,7 +76,7 @@ public class InteractionController : MonoBehaviour
     }
 
     /// <summary>
-    /// Обработка ввода мыши
+    /// Обработка ввода мыши с использованием New Input System
     /// </summary>
     private void HandleMouseInput()
     {
@@ -78,21 +85,27 @@ public class InteractionController : MonoBehaviour
             return; // Блокируем ввод во время анимации
         }
 
-        Ray ray = _cam.ScreenPointToRay(Input.mousePosition);
+        // Проверка на случай, если устройство мыши не подключено
+        if (_mouse == null)
+            return;
+
+        // Получаем позицию мыши через New Input System
+        Vector2 mousePosition = _mouse.position.ReadValue();
+        Ray ray = _cam.ScreenPointToRay(mousePosition);
         RaycastHit hit;
 
         if (Physics.Raycast(ray, out hit, Mathf.Infinity, partsLayer))
         {
             GameObject hitObject = hit.collider.gameObject;
 
-            // ЛКМ - Выделение
-            if (Input.GetMouseButtonDown(0))
+            // ЛКМ - Выделение (GetMouseButtonDown(0) -> leftButton.wasPressedThisFrame)
+            if (_mouse.leftButton.wasPressedThisFrame)
             {
                 OnLeftClick(hitObject);
             }
 
-            // ПКМ - Разборка/Сборка
-            if (Input.GetMouseButtonDown(1))
+            // ПКМ - Разборка/Сборка (GetMouseButtonDown(1) -> rightButton.wasPressedThisFrame)
+            if (_mouse.rightButton.wasPressedThisFrame)
             {
                 OnRightClick(hitObject);
             }
@@ -100,7 +113,7 @@ public class InteractionController : MonoBehaviour
         else
         {
             // Клик в пустоту - сброс выделения (опционально)
-            if (Input.GetMouseButtonDown(0))
+            if (_mouse.leftButton.wasPressedThisFrame)
             {
                 // ClearSelection(); // Можно раскомментировать, если нужно сбрасывать выделение
             }

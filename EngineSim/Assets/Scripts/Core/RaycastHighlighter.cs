@@ -1,11 +1,19 @@
 using UnityEngine;
 using DG.Tweening;
-using System.Collections;
 
 /// <summary>
-/// Отвечает за подсветку деталей при наведении и выделении.
+/// Компонент подсветки отдельной детали при наведении и выделении.
 /// Использует MaterialPropertyBlock для производительности (без клонирования материалов).
+///
+/// ВАЖНО: Этот компонент должен быть добавлен на объекты деталей (имеющие Renderer),
+/// а НЕ на камеру или пустые объекты.
+///
+/// Для работы необходимо:
+/// 1. Добавить компонент на объект детали
+/// 2. Вызывать методы OnHoverEnter(), OnHoverExit(), Select(), Deselect() из InteractionController
+///    или через систему событий Unity (OnMouseEnter/OnMouseExit)
 /// </summary>
+[RequireComponent(typeof(Renderer))]
 public class RaycastHighlighter : MonoBehaviour
 {
     [Header("Настройки подсветки")]
@@ -19,18 +27,18 @@ public class RaycastHighlighter : MonoBehaviour
     public float hoverIntensity = 0.5f;
     public float selectIntensity = 1.5f;
     public float errorIntensity = 2.0f;
-    
+
     [Range(0.1f, 2f)]
     public float animationDuration = 0.5f; // Длительность плавного перехода
 
     private Renderer _objectRenderer;
     private MaterialPropertyBlock _propertyBlock;
     private static readonly int EmissionMapID = Shader.PropertyToID("_EmissionColor");
-    
+
     // Флаги состояния
     private bool _isHovering = false;
     private bool _isSelected = false;
-    
+
     // Текущая целевая интенсивность и цвет
     private Color _targetColor = Color.black;
     private float _targetIntensity = 0f;
@@ -40,16 +48,20 @@ public class RaycastHighlighter : MonoBehaviour
 
     private void Awake()
     {
+        // Получаем Renderer с текущего объекта (обязательно наличие благодаря RequireComponent)
         _objectRenderer = GetComponent<Renderer>();
+
+        // Проверка на всякий случай - если вдруг Renderer отсутствует
         if (_objectRenderer == null)
         {
-            Debug.LogWarning($"[RaycastHighlighter] На объекте {gameObject.name} нет Renderer!");
+            Debug.LogError($"[RaycastHighlighter] КРИТИЧЕСКАЯ ОШИБКА: На объекте {gameObject.name} нет Renderer! " +
+                          $"Этот компонент должен быть на объектах с мешем, а не на камере.");
             enabled = false;
             return;
         }
-        
+
         _propertyBlock = new MaterialPropertyBlock();
-        // Инициализация нулевым значением
+        // Инициализация нулевым значением (убираем любую существующую эмиссию)
         _objectRenderer.GetPropertyBlock(_propertyBlock);
         _propertyBlock.SetColor(EmissionMapID, Color.black);
         _objectRenderer.SetPropertyBlock(_propertyBlock);
@@ -61,7 +73,7 @@ public class RaycastHighlighter : MonoBehaviour
     public void OnHoverEnter()
     {
         if (_isSelected) return; // Если уже выделено, ховер не меняем
-        
+
         _isHovering = true;
         UpdateTargetState();
     }
@@ -72,7 +84,7 @@ public class RaycastHighlighter : MonoBehaviour
     public void OnHoverExit()
     {
         if (_isSelected) return; // Если выделено, уход мыши не сбрасывает подсветку
-        
+
         _isHovering = false;
         UpdateTargetState();
     }
@@ -157,9 +169,9 @@ public class RaycastHighlighter : MonoBehaviour
         // Используем DOTween для плавной интерполяции цвета
         // Мы анимируем "фиктивный" объект или просто используем Callback
         _currentTween = DOVirtual.Color(
-            currentColor, 
-            _targetColor * _targetIntensity, 
-            animationDuration, 
+            currentColor,
+            _targetColor * _targetIntensity,
+            animationDuration,
             OnColorUpdate
         ).SetEase(Ease.InOutSine); // Плавное нарастание и затухание
     }
@@ -167,7 +179,7 @@ public class RaycastHighlighter : MonoBehaviour
     private void OnColorUpdate(Color value)
     {
         if (_objectRenderer == null) return;
-        
+
         _propertyBlock.SetColor(EmissionMapID, value);
         _objectRenderer.SetPropertyBlock(_propertyBlock);
     }

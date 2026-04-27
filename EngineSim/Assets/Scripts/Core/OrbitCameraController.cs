@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using DG.Tweening;
 
 /// <summary>
@@ -8,22 +9,25 @@ public class OrbitCameraController : MonoBehaviour
 {
     [Header("Настройки вращения")]
     public float rotateSpeed = 100f;
-    
+
     [Header("Настройки зума")]
     public float minDistance = 2f;
     public float maxDistance = 20f;
     public float zoomSpeed = 5f;
-    
+
     [Header("Текущее состояние")]
     public Vector3 focusPoint = Vector3.zero;
     public float currentDistance = 10f;
-    
+
     // Внутренние переменные для углов
     private float _horizontalAngle = 0f;
     private float _verticalAngle = 20f;
-    
+
     // Ссылка на камеру
     private Camera _cam;
+
+    // Ссылки на действия New Input System
+    private Mouse _mouse;
 
     private void Start()
     {
@@ -33,17 +37,27 @@ public class OrbitCameraController : MonoBehaviour
             Debug.LogError("OrbitCameraController: Камера не найдена!");
             enabled = false;
         }
-        
+
+        // Инициализация New Input System
+        _mouse = Mouse.current;
+
         UpdateCameraPosition();
     }
 
     private void LateUpdate()
     {
+        // Проверка на случай, если устройство мыши не подключено
+        if (_mouse == null)
+            return;
+
         // Вращение (ЛКМ + Drag или колесико как кнопка)
-        if (Input.GetMouseButton(0)) 
+        // GetMouseButton(0) -> leftButton.isPressed
+        if (_mouse.leftButton.isPressed)
         {
-            float h = Input.GetAxis("Mouse X");
-            float v = Input.GetAxis("Mouse Y");
+            //.GetAxis("Mouse X") -> delta.x
+            float h = _mouse.delta.x.ReadValue();
+            //.GetAxis("Mouse Y") -> delta.y
+            float v = _mouse.delta.y.ReadValue();
 
             _horizontalAngle += h * rotateSpeed * Time.deltaTime;
             _verticalAngle -= v * rotateSpeed * Time.deltaTime;
@@ -53,7 +67,8 @@ public class OrbitCameraController : MonoBehaviour
         }
 
         // Зум (Колесико мыши)
-        float scroll = Input.GetAxis("Mouse ScrollWheel");
+        //.GetAxis("Mouse ScrollWheel") -> scroll.ReadValue()
+        float scroll = _mouse.scroll.ReadValue().y;
         if (scroll != 0f)
         {
             currentDistance -= scroll * zoomSpeed * 10f; // Усиливаем чувствительность
@@ -69,7 +84,7 @@ public class OrbitCameraController : MonoBehaviour
     {
         Quaternion rotation = Quaternion.Euler(_verticalAngle, _horizontalAngle, 0);
         Vector3 offset = rotation * new Vector3(0, 0, currentDistance);
-        
+
         transform.position = focusPoint - offset;
         transform.LookAt(focusPoint);
     }
@@ -111,7 +126,7 @@ public class OrbitCameraController : MonoBehaviour
 
         // 2. Анимация зума (немного отъезжаем, чтобы видеть объект целиком)
         float targetDist = Mathf.Clamp(offsetDistance, minDistance, maxDistance);
-        
+
         DOTween.To(() => currentDistance, x => currentDistance = x, targetDist, duration)
                .SetEase(Ease.OutCubic)
                .OnUpdate(UpdateCameraPosition);
