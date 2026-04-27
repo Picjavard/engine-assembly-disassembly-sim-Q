@@ -336,15 +336,11 @@ public class InteractionController : MonoBehaviour
         renderer.GetPropertyBlock(_block);
 
         // Сохраняем текущий цвет объекта (включая альфа-канал) перед изменением
-        _originalColor = _block.GetColor(_colorId);
+        _originalColor = _block.HasProperty(_colorId) ? _block.GetColor(_colorId) : Color.white;
 
-        // Проверка: если материал не поддерживает эмиссию, пробуем установить её явно
-        // Это нужно для материалов, где эмиссия не была настроена в редакторе
-        if (!_block.HasProperty(_emissionId))
-        {
-            // Принудительно устанавливаем черную эмиссию (база)
-            _block.SetColor(_emissionId, Color.black);
-        }
+        // Принудительно устанавливаем эмиссию, даже если её не было в материале
+        // Стандартный шейдер всегда поддерживает _EmissionColor, но значение может быть не задано
+        _block.SetColor(_emissionId, Color.black);
 
         Color targetColor = highlightColor * 0.8f;
         float halfDuration = duration / 2f;
@@ -406,17 +402,12 @@ public class InteractionController : MonoBehaviour
             return;
         }
 
-        // Проверяем, поддерживает ли материал свойство _EmissionColor
+        // Получаем блок свойств и сохраняем текущий цвет объекта (включая альфа-канал)
         renderer.GetPropertyBlock(_block);
+        Color originalColor = _block.HasProperty(_colorId) ? _block.GetColor(_colorId) : Color.white;
 
-        // Сохраняем текущий цвет объекта (включая альфа-канал)
-        Color originalColor = _block.GetColor(_colorId);
-
-        // Проверка: если материал не поддерживает эмиссию, пробуем установить её явно
-        if (!_block.HasProperty(_emissionId))
-        {
-            _block.SetColor(_emissionId, Color.black);
-        }
+        // Принудительно устанавливаем эмиссию (база)
+        _block.SetColor(_emissionId, Color.black);
 
         Color errorColor = new Color(1f, 0f, 0f, 1f) * 0.8f;
         float flashDuration = 0.5f;
