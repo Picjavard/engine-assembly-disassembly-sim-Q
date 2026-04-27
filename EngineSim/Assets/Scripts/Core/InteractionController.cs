@@ -326,11 +326,25 @@ public class InteractionController : MonoBehaviour
         if (target == null) return;
 
         Renderer renderer = target.GetComponent<Renderer>();
-        if (renderer == null) return;
+        if (renderer == null)
+        {
+            Debug.LogWarning($"[HighlightObject] У объекта {target.name} нет Renderer!");
+            return;
+        }
+
+        // Проверяем, поддерживает ли материал свойство _EmissionColor
+        renderer.GetPropertyBlock(_block);
 
         // Сохраняем текущий цвет объекта (включая альфа-канал) перед изменением
-        renderer.GetPropertyBlock(_block);
         _originalColor = _block.GetColor(_colorId);
+
+        // Проверка: если материал не поддерживает эмиссию, пробуем установить её явно
+        // Это нужно для материалов, где эмиссия не была настроена в редакторе
+        if (!_block.HasProperty(_emissionId))
+        {
+            // Принудительно устанавливаем черную эмиссию (база)
+            _block.SetColor(_emissionId, Color.black);
+        }
 
         Color targetColor = highlightColor * 0.8f;
         float halfDuration = duration / 2f;
@@ -373,6 +387,8 @@ public class InteractionController : MonoBehaviour
                 renderer.SetPropertyBlock(_block);
             }
         });
+
+        Debug.Log($"[HighlightObject] Запущена подсветка объекта {target.name} длительностью {duration}с");
     }
 
     /// <summary>
@@ -384,11 +400,23 @@ public class InteractionController : MonoBehaviour
         if (part == null) return;
 
         Renderer renderer = part.GetComponent<Renderer>();
-        if (renderer == null) return;
+        if (renderer == null)
+        {
+            Debug.LogWarning($"[FlashError] У объекта {part.name} нет Renderer!");
+            return;
+        }
+
+        // Проверяем, поддерживает ли материал свойство _EmissionColor
+        renderer.GetPropertyBlock(_block);
 
         // Сохраняем текущий цвет объекта (включая альфа-канал)
-        renderer.GetPropertyBlock(_block);
         Color originalColor = _block.GetColor(_colorId);
+
+        // Проверка: если материал не поддерживает эмиссию, пробуем установить её явно
+        if (!_block.HasProperty(_emissionId))
+        {
+            _block.SetColor(_emissionId, Color.black);
+        }
 
         Color errorColor = new Color(1f, 0f, 0f, 1f) * 0.8f;
         float flashDuration = 0.5f;
@@ -432,6 +460,8 @@ public class InteractionController : MonoBehaviour
                 renderer.SetPropertyBlock(_block);
             }
         });
+
+        Debug.Log($"[FlashError] Запущена красная вспышка на объекте {part.name}");
     }
 
     /// <summary>
