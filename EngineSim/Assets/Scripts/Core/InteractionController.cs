@@ -47,7 +47,11 @@ public class InteractionController : MonoBehaviour
 
     // MaterialPropertyBlock для подсветки
     private int _emissionId;
+    private int _colorId;
     private MaterialPropertyBlock _block;
+
+    // Для хранения исходного цвета (включая альфа-канал прозрачности)
+    private Color _originalColor;
 
     private Camera _cam;
 
@@ -58,6 +62,7 @@ public class InteractionController : MonoBehaviour
     {
         _cam = GetComponent<Camera>();
         _emissionId = Shader.PropertyToID("_EmissionColor");
+        _colorId = Shader.PropertyToID("_Color");
         _block = new MaterialPropertyBlock();
 
         // Инициализация New Input System
@@ -314,6 +319,7 @@ public class InteractionController : MonoBehaviour
     /// <summary>
     /// Подсветка объекта на заданное время с плавным нарастанием и затуханием.
     /// Общая длительность: 0.5 сек (0.25 сек нарастание + 0.25 сек затухание).
+    /// ВАЖНО: Сохраняет цвет и прозрачность объекта, меняя только эмиссию.
     /// </summary>
     private void HighlightObject(GameObject target, float duration)
     {
@@ -321,6 +327,10 @@ public class InteractionController : MonoBehaviour
 
         Renderer renderer = target.GetComponent<Renderer>();
         if (renderer == null) return;
+
+        // Сохраняем текущий цвет объекта (включая альфа-канал) перед изменением
+        renderer.GetPropertyBlock(_block);
+        _originalColor = _block.GetColor(_colorId);
 
         Color targetColor = highlightColor * 0.8f;
         float halfDuration = duration / 2f;
@@ -346,14 +356,20 @@ public class InteractionController : MonoBehaviour
 
             Color currentColor = targetColor * alpha;
             _block.SetColor(_emissionId, currentColor);
+
+            // Восстанавливаем исходный цвет объекта (сохраняем прозрачность!)
+            _block.SetColor(_colorId, _originalColor);
+
             renderer.SetPropertyBlock(_block);
         }, 0f, duration)
         .SetEase(DG.Tweening.Ease.Linear)
         .OnComplete(() => {
-            // Гарантированно выключаем подсветку после завершения
+            // Гарантированно выключаем подсветку после завершения, но сохраняем цвет и прозрачность
             if (renderer != null)
             {
-                _block.Clear();
+                renderer.GetPropertyBlock(_block);
+                _block.SetColor(_emissionId, Color.black);
+                _block.SetColor(_colorId, _originalColor);
                 renderer.SetPropertyBlock(_block);
             }
         });
@@ -361,6 +377,7 @@ public class InteractionController : MonoBehaviour
 
     /// <summary>
     /// Красная вспышка при ошибке (плавное нарастание и затухание за 0.5 сек)
+    /// ВАЖНО: Сохраняет цвет и прозрачность объекта, меняя только эмиссию.
     /// </summary>
     private void FlashError(PartController part)
     {
@@ -368,6 +385,10 @@ public class InteractionController : MonoBehaviour
 
         Renderer renderer = part.GetComponent<Renderer>();
         if (renderer == null) return;
+
+        // Сохраняем текущий цвет объекта (включая альфа-канал)
+        renderer.GetPropertyBlock(_block);
+        Color originalColor = _block.GetColor(_colorId);
 
         Color errorColor = new Color(1f, 0f, 0f, 1f) * 0.8f;
         float flashDuration = 0.5f;
@@ -394,14 +415,20 @@ public class InteractionController : MonoBehaviour
 
             Color currentColor = errorColor * alpha;
             _block.SetColor(_emissionId, currentColor);
+
+            // Восстанавливаем исходный цвет объекта (сохраняем прозрачность!)
+            _block.SetColor(_colorId, originalColor);
+
             renderer.SetPropertyBlock(_block);
         }, 0f, flashDuration)
         .SetEase(DG.Tweening.Ease.Linear)
         .OnComplete(() => {
-            // Полностью убираем подсветку после завершения анимации
+            // Полностью убираем подсветку после завершения анимации, но сохраняем цвет и прозрачность
             if (renderer != null)
             {
-                _block.Clear();
+                renderer.GetPropertyBlock(_block);
+                _block.SetColor(_emissionId, Color.black);
+                _block.SetColor(_colorId, originalColor);
                 renderer.SetPropertyBlock(_block);
             }
         });
