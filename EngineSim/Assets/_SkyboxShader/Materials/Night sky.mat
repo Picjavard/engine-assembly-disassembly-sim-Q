@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Night sky
+  m_Shader: {fileID: 4800000, guid: 25b1388574d519540a1a672c74f030e6, type: 3}
+  m_Parent: {fileID: 2100000, guid: bfd734a060e7d884e9b81ccbca00749d, type: 2}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - ENABLE_BACKGROUND_NOISE
+  m_InvalidKeywords:
+  - BACKGROUND_NOISE
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _MoonTex:
+        m_Texture: {fileID: 2800000, guid: 06289ff7b5c52c14aa86c8ef530429cb, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _Brightness: 2.89
+    - _BrightnessMod: 3
+    - _Density: 2.28
+    - _DensityMod: 1.97
+    - _EnableBackgroundNoise: 1
+    - _MaxStarSize: 0.87
+    - _MinStarSize: 0.57
+    - _MoonSize: 0.095
+    - _NoiseDensity: 8.6
+    - _Seed: 68.89
+    m_Colors:
+    - _MoonBloomParams: {r: 6.4505634, g: -1.8194131, b: 1.03, a: 5.3}
+    - _MoonTint: {r: 0.8254717, g: 0.9563679, b: 1, a: 1}
+    - _NoiseMaskParams: {r: 0.33, g: 6, b: 0.628, a: 2.11}
+    - _NoiseMaskParams2: {r: 0.08747184, g: -0.018151425, b: 0.51, a: 2.49}
+    - _NoiseParams: {r: 0.75, g: 6, b: 0.795, a: 2.08}
+    - _SkyColor: {r: 0, g: 0, b: 0, a: 1}
+    - _SkyFogColor: {r: 0, g: 0.2473852, b: 0.254717, a: 1}
+    - _StarSizeRange: {r: 0.6820977, g: 0.80299664, b: 0, a: 0}
+  m_BuildTextureStacks: []

@@ -71,7 +71,7 @@ public class OrbitCameraController : MonoBehaviour
         float scroll = _mouse.scroll.ReadValue().y;
         if (scroll != 0f)
         {
-            currentDistance -= scroll * zoomSpeed * 10f; // Усиливаем чувствительность
+            currentDistance -= scroll * zoomSpeed * 0.01f; // Усиливаем чувствительность
             currentDistance = Mathf.Clamp(currentDistance, minDistance, maxDistance);
             UpdateCameraPosition();
         }

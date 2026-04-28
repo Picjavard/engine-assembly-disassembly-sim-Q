@@ -7,16 +7,14 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Def
-  m_Shader: {fileID: 4800000, guid: 53b042618d1867a48a6bfbc30b0cea5a, type: 3}
+  m_Name: Wat sky
+  m_Shader: {fileID: 4800000, guid: 25b1388574d519540a1a672c74f030e6, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords:
-  - _EMISSION
+  m_ValidKeywords: []
   m_InvalidKeywords:
-  - _OUTLINEENABLED_OFF
-  - _OUTLINE_ON
-  m_LightmapFlags: 1
+  - BACKGROUND_NOISE
+  m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: -1
@@ -54,6 +52,10 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _MoonTex:
+        m_Texture: {fileID: 2800000, guid: 9810f396c6232ad48b7cf0e845626c7a, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _OcclusionMap:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
@@ -64,27 +66,44 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _AlphaBlend: 0
+    - _Brightness: 0
+    - _BrightnessMod: 2.13
     - _BumpScale: 1
     - _Cutoff: 0.5
+    - _Density: 0.5
+    - _DensityMod: 1.1
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
+    - _EnableBackgroundNoise: 0
+    - _EnableMoon: 0
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
+    - _Layers: 1
+    - _MaxStarSize: 5
     - _Metallic: 0
+    - _MinStarSize: 0.62
     - _Mode: 0
+    - _MoonSize: 0.874
+    - _NoiseDensity: 10.1
     - _OcclusionStrength: 1
-    - _OutlineEnabled: 1
-    - _OutlineWidth: 0.0204
     - _Parallax: 0.02
+    - _Seed: -0.2
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1
+    - _SunDisk: 2
     - _UVSec: 0
     - _ZWrite: 1
     m_Colors:
-    - _Color: {r: 0.23773581, g: 0.23773581, b: 0.23773581, a: 1}
-    - _EmissionColor: {r: 0.003921569, g: 0.003921569, b: 0.003921569, a: 1}
-    - _OutlineColor: {r: 1, g: 0.93, b: 0, a: 1}
+    - _Color: {r: 0.8431373, g: 0.8431373, b: 0.8431373, a: 1}
+    - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _MoonBloomParams: {r: 2.04, g: 0.07, b: 0.23, a: 3.68}
+    - _MoonTint: {r: 0.7311321, g: 0.9841842, b: 1, a: 0.94509804}
+    - _NoiseMaskParams: {r: 0.1, g: 4.28, b: 0.57, a: 1.83}
+    - _NoiseMaskParams2: {r: 0.11, g: -0.001, b: 0.56, a: 1.15}
+    - _NoiseParams: {r: -0.54, g: 4.71, b: 0.73, a: 2.53}
+    - _SkyColor: {r: 0.8415094, g: 0.8415094, b: 0.8415094, a: 1}
+    - _SkyFogColor: {r: 0.0033374857, g: 0.13338165, b: 0.14150941, a: 1}
+    - _StarSizeRange: {r: 0.4, g: 0.4, b: 0, a: 0}
   m_BuildTextureStacks: []

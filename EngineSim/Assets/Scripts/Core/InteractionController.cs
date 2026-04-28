@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using DG.Tweening;
 using AssemblyApp.Data;
+using System.Collections.Generic;
 
 /// <summary>
 /// Контроллер взаимодействия с 3D-объектами.
@@ -35,7 +36,7 @@ public class InteractionController : MonoBehaviour
     public float highlightDuration = 0.5f;
 
     [Tooltip("Цвет подсветки при выделении")]
-    public Color highlightColor = new Color(1f, 0.8f, 0f, 1f);
+    public Color highlightColor = new Color(1f, 0.93f, 0f, 1f); // Ярко-желтый (RGB: 255, 238, 0)
 
     [Header("Таймер (опционально)")]
     [Tooltip("Таймер для задержек между действиями")]
@@ -47,11 +48,7 @@ public class InteractionController : MonoBehaviour
 
     // MaterialPropertyBlock для подсветки
     private int _emissionId;
-    private int _colorId;
     private MaterialPropertyBlock _block;
-
-    // Для хранения исходного цвета (включая альфа-канал прозрачности)
-    private Color _originalColor;
 
     private Camera _cam;
 
@@ -62,7 +59,6 @@ public class InteractionController : MonoBehaviour
     {
         _cam = GetComponent<Camera>();
         _emissionId = Shader.PropertyToID("_EmissionColor");
-        _colorId = Shader.PropertyToID("_Color");
         _block = new MaterialPropertyBlock();
 
         // Инициализация New Input System
@@ -103,13 +99,13 @@ public class InteractionController : MonoBehaviour
         {
             GameObject hitObject = hit.collider.gameObject;
 
-            // ЛКМ - Выделение (GetMouseButtonDown(0) -> leftButton.wasPressedThisFrame)
+            // ЛКМ - Выделение
             if (_mouse.leftButton.wasPressedThisFrame)
             {
                 OnLeftClick(hitObject);
             }
 
-            // ПКМ - Разборка/Сборка (GetMouseButtonDown(1) -> rightButton.wasPressedThisFrame)
+            // ПКМ - Разборка/Сборка
             if (_mouse.rightButton.wasPressedThisFrame)
             {
                 OnRightClick(hitObject);
@@ -120,7 +116,7 @@ public class InteractionController : MonoBehaviour
             // Клик в пустоту - сброс выделения (опционально)
             if (_mouse.leftButton.wasPressedThisFrame)
             {
-                // ClearSelection(); // Можно раскомментировать, если нужно сбрасывать выделение
+                // ClearSelection();
             }
         }
     }
@@ -128,19 +124,23 @@ public class InteractionController : MonoBehaviour
     /// <summary>
     /// Обработка клика ЛКМ по детали
     /// </summary>
-    private void OnLeftClick(GameObject hitObject)
+private void OnLeftClick(GameObject hitObject)
     {
         if (hitObject == null) return;
 
-        _currentSelectedObject = hitObject;
+        // Сброс старого выделения
+        if (_currentSelectedObject != null && _currentSelectedObject != hitObject)
+        {
+            DisableOutline(_currentSelectedObject);
+        }
 
-        // Находим данные узла по объекту
+        _currentSelectedObject = hitObject;
         _currentSelectedNode = FindNodeByObjectName(hitObject.name);
 
-        // Подсветка с плавным нарастанием и затуханием
-        HighlightObject(hitObject, highlightDuration);
+        // Включаем контур
+        EnableOutline(hitObject, highlightColor, 0.008f);
 
-        // Обновление информационной панели
+        // 3. Обновляем инфопанель и иерархию (без изменений)
         if (infoPanel != null)
         {
             string title = _currentSelectedNode != null ? _currentSelectedNode.name : hitObject.name;
@@ -148,21 +148,13 @@ public class InteractionController : MonoBehaviour
             infoPanel.UpdateInfo(title, description);
         }
 
-        // Синхронизация с деревом иерархии
         if (hierarchyView != null && _currentSelectedNode != null)
         {
             hierarchyView.SelectPartByNode(_currentSelectedNode);
         }
 
-        // Фокусировка камеры (опционально, можно добавить двойной клик)
-        // if (cameraController != null)
-        // {
-        //     cameraController.FocusOnObject(hitObject, 1f, 3f);
-        // }
-
         Debug.Log($"[InteractionController] Выбрана деталь: {hitObject.name}");
     }
-
     /// <summary>
     /// Обработка клика ПКМ по детали (разборка/сборка)
     /// </summary>
@@ -170,7 +162,6 @@ public class InteractionController : MonoBehaviour
     {
         if (hitObject == null) return;
 
-        // Проверяем, есть ли у этой детали PartController
         PartController partController = hitObject.GetComponent<PartController>();
 
         if (partController == null || partController.associatedStep == null)
@@ -179,20 +170,14 @@ public class InteractionController : MonoBehaviour
             return;
         }
 
-        // Определяем текущее состояние детали
         bool isDisassembled = partController.isDisassembled;
-
-        // Проверка порядка разборки: нельзя разобрать деталь, если предыдущие еще не разобраны
-        // (эта логика уже реализована в SequenceManager, но можно добавить дополнительную проверку здесь)
 
         if (!isDisassembled)
         {
-            // Деталь установлена -> Запуск разборки
             TryExecuteDisassembly(partController);
         }
         else
         {
-            // Деталь снята -> Запуск сборки
             TryExecuteAssembly(partController);
         }
     }
@@ -204,21 +189,16 @@ public class InteractionController : MonoBehaviour
     {
         if (sequenceManager == null) return;
 
-        // Проверяем, является ли эта деталь следующим шагом в последовательности
         PartController nextPart = GetNextDisassemblyPart();
 
         if (nextPart == part)
         {
-            // Это следующий шаг -> выполняем
             Debug.Log($"[InteractionController] Запуск разборки: {part.name}");
             sequenceManager.NextStep();
         }
         else
         {
-            // Не следующий шаг -> блокируем
             Debug.LogWarning($"[InteractionController] Нельзя разобрать {part.name}! Сначала разберите предыдущие детали.");
-
-            // Визуальная обратная связь (например, красная вспышка)
             FlashError(part);
         }
     }
@@ -230,20 +210,16 @@ public class InteractionController : MonoBehaviour
     {
         if (sequenceManager == null) return;
 
-        // Проверяем, является ли эта деталь последним разобранным шагом
         PartController lastPart = GetLastDisassembledPart();
 
         if (lastPart == part)
         {
-            // Это последний шаг -> выполняем откат
             Debug.Log($"[InteractionController] Запуск сборки: {part.name}");
             sequenceManager.PreviousStep();
         }
         else
         {
-            // Не последний шаг -> блокируем (сборка должна идти в обратном порядке)
             Debug.LogWarning($"[InteractionController] Нельзя собрать {part.name}! Сначала соберите последующие детали.");
-
             FlashError(part);
         }
     }
@@ -289,14 +265,13 @@ public class InteractionController : MonoBehaviour
     private AssemblyNode FindNodeByObjectName(string objectName)
     {
         if (dataLoader == null || dataLoader.Data == null) return null;
-
         return FindNodeRecursive(dataLoader.Data.groups, objectName);
     }
 
     /// <summary>
     /// Рекурсивный поиск узла по имени объекта
     /// </summary>
-    private AssemblyNode FindNodeRecursive(System.Collections.Generic.List<AssemblyNode> nodes, string objectName)
+    private AssemblyNode FindNodeRecursive(List<AssemblyNode> nodes, string objectName)
     {
         if (nodes == null) return null;
 
@@ -317,142 +292,119 @@ public class InteractionController : MonoBehaviour
     }
 
     /// <summary>
-    /// Подсветка объекта на заданное время с плавным нарастанием и затуханием.
-    /// Общая длительность: 0.5 сек (0.25 сек нарастание + 0.25 сек затухание).
-    /// ВАЖНО: Сохраняет цвет и прозрачность объекта, меняя только эмиссию.
+    /// Подсветка объекта через MaterialPropertyBlock.
+    /// Работает независимо от прозрачности, так как меняет только _EmissionColor.
     /// </summary>
     private void HighlightObject(GameObject target, float duration)
     {
         if (target == null) return;
-
         Renderer renderer = target.GetComponent<Renderer>();
-        if (renderer == null)
+        if (renderer == null) return;
+
+        // Если вдруг на объекте старый шейдер, предупреждаем (опционально)
+        if (!renderer.sharedMaterial.HasProperty("_EmissionColor"))
         {
-            Debug.LogWarning($"[HighlightObject] У объекта {target.name} нет Renderer!");
+            Debug.LogWarning($"[Highlight] Шейдер {renderer.sharedMaterial.name} не поддерживает эмиссию!");
             return;
         }
 
-        // Проверяем, поддерживает ли материал свойство _EmissionColor
-        renderer.GetPropertyBlock(_block);
-
-        // Сохраняем текущий цвет объекта (включая альфа-канал) перед изменением
-        _originalColor = _block.HasProperty(_colorId) ? _block.GetColor(_colorId) : Color.white;
-
-        // Принудительно устанавливаем эмиссию, даже если её не было в материале
-        // Стандартный шейдер всегда поддерживает _EmissionColor, но значение может быть не задано
-        _block.SetColor(_emissionId, Color.black);
-
-        Color targetColor = highlightColor * 0.8f;
+        Color targetEmission = highlightColor * 0.8f; 
         float halfDuration = duration / 2f;
 
-        // Используем DOTween для плавной анимации: нарастание + затухание
-        DG.Tweening.DOTween.To(() => 0f, x => {
-            if (renderer == null) return;
+        // Используем DOTween для анимации значения от 0 до 1 и обратно
+        DOTween.To(() => 0f, x => {
+                if (renderer == null) return;
 
-            renderer.GetPropertyBlock(_block);
-
-            // Рассчитываем коэффициент с плавным нарастанием и затуханием
-            float alpha;
-            if (x < halfDuration)
-            {
-                // Первая половина: плавное нарастание (0 -> 1)
-                alpha = Mathf.SmoothStep(0f, 1f, (x / halfDuration));
-            }
-            else
-            {
-                // Вторая половина: плавное затухание (1 -> 0)
-                alpha = Mathf.SmoothStep(1f, 0f, ((x - halfDuration) / halfDuration));
-            }
-
-            Color currentColor = targetColor * alpha;
-            _block.SetColor(_emissionId, currentColor);
-
-            // Восстанавливаем исходный цвет объекта (сохраняем прозрачность!)
-            _block.SetColor(_colorId, _originalColor);
-
-            renderer.SetPropertyBlock(_block);
-        }, 0f, duration)
-        .SetEase(DG.Tweening.Ease.Linear)
-        .OnComplete(() => {
-            // Гарантированно выключаем подсветку после завершения, но сохраняем цвет и прозрачность
-            if (renderer != null)
-            {
                 renderer.GetPropertyBlock(_block);
-                _block.SetColor(_emissionId, Color.black);
-                _block.SetColor(_colorId, _originalColor);
-                renderer.SetPropertyBlock(_block);
-            }
-        });
 
-        Debug.Log($"[HighlightObject] Запущена подсветка объекта {target.name} длительностью {duration}с");
+                // Плавное нарастание и затухание (Fade In / Fade Out)
+                float alpha = x < halfDuration 
+                    ? Mathf.SmoothStep(0f, 1f, x / halfDuration)
+                    : Mathf.SmoothStep(1f, 0f, (x - halfDuration) / halfDuration);
+
+                // ВАЖНО: Меняем ТОЛЬКО эмиссию. 
+                // Прозрачность (_Color) остается нетронутой и управляется отдельно через UIManager.
+                _block.SetColor("_EmissionColor", targetEmission * alpha);
+                renderer.SetPropertyBlock(_block);
+                
+            }, 0f, duration)
+            .SetEase(Ease.Linear)
+            .OnComplete(() => {
+                // Гарантированная очистка после завершения
+                if (renderer != null)
+                {
+                    renderer.GetPropertyBlock(_block);
+                    _block.SetColor("_EmissionColor", Color.black);
+                    renderer.SetPropertyBlock(_block);
+                }
+            });
     }
 
     /// <summary>
-    /// Красная вспышка при ошибке (плавное нарастание и затухание за 0.5 сек)
-    /// ВАЖНО: Сохраняет цвет и прозрачность объекта, меняя только эмиссию.
+    /// Красная вспышка ошибки. Аналогично подсветке.
     /// </summary>
     private void FlashError(PartController part)
     {
         if (part == null) return;
-
         Renderer renderer = part.GetComponent<Renderer>();
-        if (renderer == null)
-        {
-            Debug.LogWarning($"[FlashError] У объекта {part.name} нет Renderer!");
-            return;
-        }
-
-        // Получаем блок свойств и сохраняем текущий цвет объекта (включая альфа-канал)
-        renderer.GetPropertyBlock(_block);
-        Color originalColor = _block.HasProperty(_colorId) ? _block.GetColor(_colorId) : Color.white;
-
-        // Принудительно устанавливаем эмиссию (база)
-        _block.SetColor(_emissionId, Color.black);
+        if (renderer == null) return;
 
         Color errorColor = new Color(1f, 0f, 0f, 1f) * 0.8f;
         float flashDuration = 0.5f;
         float halfDuration = flashDuration / 2f;
 
-        // Используем DOTween для плавной анимации: нарастание + затухание
-        DG.Tweening.DOTween.To(() => 0f, x => {
-            if (renderer == null) return;
-
-            renderer.GetPropertyBlock(_block);
-
-            // Рассчитываем коэффициент с плавным нарастанием и затуханием
-            float alpha;
-            if (x < halfDuration)
-            {
-                // Первая половина: плавное нарастание (0 -> 1)
-                alpha = Mathf.SmoothStep(0f, 1f, (x / halfDuration));
-            }
-            else
-            {
-                // Вторая половина: плавное затухание (1 -> 0)
-                alpha = Mathf.SmoothStep(1f, 0f, ((x - halfDuration) / halfDuration));
-            }
-
-            Color currentColor = errorColor * alpha;
-            _block.SetColor(_emissionId, currentColor);
-
-            // Восстанавливаем исходный цвет объекта (сохраняем прозрачность!)
-            _block.SetColor(_colorId, originalColor);
-
-            renderer.SetPropertyBlock(_block);
-        }, 0f, flashDuration)
-        .SetEase(DG.Tweening.Ease.Linear)
-        .OnComplete(() => {
-            // Полностью убираем подсветку после завершения анимации, но сохраняем цвет и прозрачность
-            if (renderer != null)
-            {
+        DOTween.To(() => 0f, x => {
+                if (renderer == null) return;
                 renderer.GetPropertyBlock(_block);
-                _block.SetColor(_emissionId, Color.black);
-                _block.SetColor(_colorId, originalColor);
-                renderer.SetPropertyBlock(_block);
-            }
-        });
 
-        Debug.Log($"[FlashError] Запущена красная вспышка на объекте {part.name}");
+                float alpha = x < halfDuration 
+                    ? Mathf.SmoothStep(0f, 1f, x / halfDuration)
+                    : Mathf.SmoothStep(1f, 0f, (x - halfDuration) / halfDuration);
+
+                _block.SetColor("_EmissionColor", errorColor * alpha);
+                renderer.SetPropertyBlock(_block);
+                
+            }, 0f, flashDuration)
+            .SetEase(Ease.Linear)
+            .OnComplete(() => {
+                if (renderer != null)
+                {
+                    renderer.GetPropertyBlock(_block);
+                    _block.SetColor("_EmissionColor", Color.black);
+                    renderer.SetPropertyBlock(_block);
+                }
+            });
+    }
+
+ // === OUTLINE CONTROLS ===
+
+     /// <summary>
+    /// Включить контур (установить ширину > 0)
+    /// </summary>
+    public void EnableOutline(GameObject target, Color outlineColor, float width = 0.005f)
+    {
+        if (target == null) return;
+        Renderer renderer = target.GetComponent<Renderer>();
+        if (renderer == null) return;
+
+        renderer.GetPropertyBlock(_block);
+        _block.SetColor("_OutlineColor", outlineColor);
+        _block.SetFloat("_OutlineWidth", Mathf.Max(0.0001f, width)); // Гарантируем > 0
+        renderer.SetPropertyBlock(_block);
+    }
+
+    /// <summary>
+    /// Выключить контур (установить ширину = 0)
+    /// </summary>
+    public void DisableOutline(GameObject target)
+    {
+        if (target == null) return;
+        Renderer renderer = target.GetComponent<Renderer>();
+        if (renderer == null) return;
+
+        renderer.GetPropertyBlock(_block);
+        _block.SetFloat("_OutlineWidth", 0f); // 0 = контур не рисуется
+        renderer.SetPropertyBlock(_block);
     }
 
     /// <summary>
@@ -460,6 +412,11 @@ public class InteractionController : MonoBehaviour
     /// </summary>
     public void ClearSelection()
     {
+        if (_currentSelectedObject != null)
+        {
+            DisableOutline(_currentSelectedObject);
+        }
+        
         _currentSelectedObject = null;
         _currentSelectedNode = null;
 

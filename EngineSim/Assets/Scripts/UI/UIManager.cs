@@ -107,24 +107,24 @@ public class UIManager : MonoBehaviour
     /// <summary>
     /// Применяет прозрачность ко всем деталям через MaterialPropertyBlock
     /// </summary>
-    private void ApplyTransparency(float alpha)
+     private void ApplyTransparency(float alpha)
     {
-        Color color = new Color(1, 1, 1, alpha);
-        
-        // Для стандартного шейдера нужно менять _Color и возможно режим рендеринга,
-        // но для простого прототипа меняем только альфу цвета.
-        // Внимание: Чтобы прозрачность работала визуально, материал должен поддерживать Transparent mode.
-        // Если используется Def.mat (Opaque), альфа не сработает без смены шейдера.
-        // Для прототипа: предполагаем, что материал поддерживает альфу или мы просто эмулируем логику.
-        
         MaterialPropertyBlock mpb = new MaterialPropertyBlock();
         
         foreach (var renderer in _allRenderers)
         {
+            if (renderer == null) continue;
+            
+            // 1. Получаем текущее состояние (из материала или предыдущего блока)
             renderer.GetPropertyBlock(mpb);
-            // Получаем текущий цвет, чтобы не затереть RGB если они были изменены хайлайтером
+            
+            // 2. Берем текущий цвет. Если там пусто, берем дефолтный белый.
+            //Color current = mpb.HasProperty("_Color") ? mpb.GetColor("_Color") : Color.white;
             Color current = mpb.GetColor("_Color");
+            // 3. Меняем ТОЛЬКО альфу. Цвет (RGB) оставляем как есть (важно, если подсветка его как-то затронула, хотя мы так не делаем).
             current.a = alpha;
+            
+            // 4. Применяем обратно
             mpb.SetColor("_Color", current);
             renderer.SetPropertyBlock(mpb);
         }
