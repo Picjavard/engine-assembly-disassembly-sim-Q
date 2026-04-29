@@ -12,9 +12,6 @@ public class UIManager : MonoBehaviour
     [Tooltip("Ссылка на менеджер последовательности")]
     public SequenceManager sequenceManager;
 
-    [Tooltip("Ссылка на хайлайтер (для прозрачности)")]
-    public RaycastHighlighter highlighter;
-
     [Tooltip("Ссылка на панель информации о детали")]
     public PartInfoPanel infoPanel;
 
@@ -110,6 +107,7 @@ public class UIManager : MonoBehaviour
      private void ApplyTransparency(float alpha)
     {
         MaterialPropertyBlock mpb = new MaterialPropertyBlock();
+        int colorId = Shader.PropertyToID("_Color");
         
         foreach (var renderer in _allRenderers)
         {
@@ -118,14 +116,27 @@ public class UIManager : MonoBehaviour
             // 1. Получаем текущее состояние (из материала или предыдущего блока)
             renderer.GetPropertyBlock(mpb);
             
-            // 2. Берем текущий цвет. Если там пусто, берем дефолтный белый.
-            //Color current = mpb.HasProperty("_Color") ? mpb.GetColor("_Color") : Color.white;
-            Color current = mpb.GetColor("_Color");
+            // 2. Берем текущий цвет:
+            //    - если _Color уже был переопределен в property block — используем его
+            //    - иначе берем базовый цвет из sharedMaterial
+            Color current;
+            if (mpb != null && mpb.HasProperty(colorId))
+            {
+                current = mpb.GetColor(colorId);
+            }
+            else if (renderer.sharedMaterial != null && renderer.sharedMaterial.HasProperty("_Color"))
+            {
+                current = renderer.sharedMaterial.GetColor("_Color");
+            }
+            else
+            {
+                current = Color.white;
+            }
             // 3. Меняем ТОЛЬКО альфу. Цвет (RGB) оставляем как есть (важно, если подсветка его как-то затронула, хотя мы так не делаем).
             current.a = alpha;
             
             // 4. Применяем обратно
-            mpb.SetColor("_Color", current);
+            mpb.SetColor(colorId, current);
             renderer.SetPropertyBlock(mpb);
         }
     }

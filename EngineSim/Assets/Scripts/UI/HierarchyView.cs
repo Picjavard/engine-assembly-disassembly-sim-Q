@@ -17,9 +17,6 @@ public class HierarchyView : MonoBehaviour
     [Tooltip("Ссылка на контроллер камеры")]
     public OrbitCameraController cameraController;
 
-    [Tooltip("Ссылка на менеджер выделения (для подсветки)")]
-    public RaycastHighlighter highlighter;
-
     [Tooltip("Ссылка на панель информации (для обновления данных)")]
     public PartInfoPanel infoPanel;
 
@@ -195,54 +192,70 @@ public class HierarchyView : MonoBehaviour
     /// </summary>
     private void HighlightPartTemporarily(GameObject target)
     {
-        if (highlighter == null || target == null) return;
+        if (target == null) return;
 
-        Renderer renderer = target.GetComponent<Renderer>();
-        if (renderer == null) return;
+        Renderer[] renderers = target.GetComponentsInChildren<Renderer>();
+        if (renderers == null || renderers.Length == 0) return;
 
         // Применяем подсветку через MaterialPropertyBlock
-        MaterialPropertyBlock block = new MaterialPropertyBlock();
+        var block = new MaterialPropertyBlock();
         int emissionId = Shader.PropertyToID("_EmissionColor");
 
         // Целевой цвет подсветки (золотистый)
-        Color highlightColor = new Color(1f, 0.8f, 0f, 1f) * 0.8f;
+        Color highlightEmission = new Color(1f, 0.8f, 0f, 1f) * 0.8f;
 
-        // Используем DOTween для плавной анимации: нарастание + затухание
-        float elapsedTime = 0f;
-        float fadeDuration = 0.5f; // Общая длительность
+        // Длительность (0..0.5 нарастание, 0.5..1 затухание)
+        float fadeDuration = 0.5f;
 
-        DG.Tweening.DOTween.To(() => 0f, x => {
-            elapsedTime = x;
-
-            if (renderer != null)
+        // Запоминаем эмиссию на момент запуска, чтобы после анимации восстановить состояние
+        var originalEmissions = new Dictionary<Renderer, Color>(renderers.Length);
+        foreach (var r in renderers)
+        {
+            if (r == null) continue;
+            r.GetPropertyBlock(block);
+            if (block != null && block.HasProperty(emissionId))
             {
-                renderer.GetPropertyBlock(block);
-
-                // Рассчитываем коэффициент прозрачности с плавным нарастанием и затуханием
-                float alpha;
-                if (x < fadeDuration / 2f)
-                {
-                    // Первая половина: плавное нарастание (0 -> 1)
-                    alpha = Mathf.SmoothStep(0f, 1f, (x / (fadeDuration / 2f)));
-                }
-                else
-                {
-                    // Вторая половина: плавное затухание (1 -> 0)
-                    alpha = Mathf.SmoothStep(1f, 0f, ((x - fadeDuration / 2f) / (fadeDuration / 2f)));
-                }
-
-                Color currentColor = highlightColor * alpha;
-                block.SetColor(emissionId, currentColor);
-                renderer.SetPropertyBlock(block);
+                originalEmissions[r] = block.GetColor(emissionId);
             }
-        }, 0f, fadeDuration)
-        .SetEase(Ease.InOutQuad)
-        .OnComplete(() => {
-            // Полностью убираем подсветку после завершения анимации
-            if (renderer != null)
+            else if (r.sharedMaterial != null && r.sharedMaterial.HasProperty("_EmissionColor"))
             {
-                MaterialPropertyBlock clearBlock = new MaterialPropertyBlock();
-                renderer.SetPropertyBlock(clearBlock);
+                originalEmissions[r] = r.sharedMaterial.GetColor("_EmissionColor");
+            }
+            else
+            {
+                originalEmissions[r] = Color.black;
+            }
+        }
+
+        DG.Tweening.DOVirtual.Float(0f, 1f, fadeDuration, t =>
+        {
+            float k;
+            if (t < 0.5f) k = Mathf.SmoothStep(0f, 1f, t / 0.5f);
+            else k = Mathf.SmoothStep(1f, 0f, (t - 0.5f) / 0.5f);
+
+            foreach (var kv in originalEmissions)
+            {
+                var r = kv.Key;
+                if (r == null) continue;
+                Color from = kv.Value;
+                Color emission = Color.Lerp(from, highlightEmission, k);
+                // Важно: в callback мы читаем property block конкретного рендера,
+                // чтобы не затереть чужие overrides (например, прозрачность от UIManager).
+                r.GetPropertyBlock(block);
+                block.SetColor(emissionId, emission);
+                r.SetPropertyBlock(block);
+            }
+        })
+        .SetEase(Ease.InOutQuad)
+        .OnComplete(() =>
+        {
+            foreach (var kv in originalEmissions)
+            {
+                var r = kv.Key;
+                if (r == null) continue;
+                r.GetPropertyBlock(block);
+                block.SetColor(emissionId, kv.Value);
+                r.SetPropertyBlock(block);
             }
         });
     }
@@ -287,10 +300,26 @@ public class HierarchyView : MonoBehaviour
     /// </summary>
     public void SelectPartByNode(AssemblyNode node)
     {
-        if (node != null)
+        if (node == null) return;
+
+        GameObject partObject = dataLoader.GetGameObjectByNode(node);
+        if (partObject == null) return;
+
+        // Важно: не вызываем OnPartClicked(), чтобы не включать временную эмиссию,
+        // которая конфликтует с постоянной подсветкой в InteractionController.
+        if (cameraController != null)
         {
-            OnPartClicked(node);
+            cameraController.FocusOnObject(partObject, 1.5f, 3f);
         }
+
+        SelectPartInTree(node);
+
+        if (infoPanel != null)
+        {
+            infoPanel.UpdateInfo(node.name, node.description);
+        }
+
+        _selectedObject = partObject;
     }
 
     /// <summary>

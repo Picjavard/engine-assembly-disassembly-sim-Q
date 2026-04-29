@@ -32,11 +32,21 @@ public class InteractionController : MonoBehaviour
     [Tooltip("Слой деталей для raycast")]
     public LayerMask partsLayer;
 
-    [Tooltip("Длительность подсветки при клике (сек)")]
-    public float highlightDuration = 0.5f;
-
-    [Tooltip("Цвет подсветки при выделении")]
+    [Tooltip("Цвет подсветки при выделении (будет использован как базовая эмиссия)")]
     public Color highlightColor = new Color(1f, 0.93f, 0f, 1f); // Ярко-желтый (RGB: 255, 238, 0)
+
+    [Header("Эмиссия (подсветка)")]
+    [Tooltip("Множитель яркости эмиссии для выделения")]
+    public float selectionEmissionMultiplier = 0.9f;
+
+    [Tooltip("Длительность плавного появления подсветки выделения")]
+    public float selectionEmissionFadeDuration = 0.15f;
+
+    [Tooltip("Длительность вспышки ошибки")]
+    public float errorFlashDuration = 0.5f;
+
+    [Tooltip("Множитель яркости эмиссии для ошибки")]
+    public float errorEmissionMultiplier = 1.0f;
 
     [Header("Таймер (опционально)")]
     [Tooltip("Таймер для задержек между действиями")]
@@ -49,6 +59,13 @@ public class InteractionController : MonoBehaviour
     // MaterialPropertyBlock для подсветки
     private int _emissionId;
     private MaterialPropertyBlock _block;
+
+    // Сохраняем базовую эмиссию для корректного восстановления при смене выбора
+    private readonly Dictionary<Renderer, Color> _baseEmissions = new Dictionary<Renderer, Color>();
+
+    // Твины для анимаций эмиссии
+    private Tween _selectionTween;
+    private Tween _errorTween;
 
     private Camera _cam;
 
@@ -131,27 +148,25 @@ private void OnLeftClick(GameObject hitObject)
         // Сброс старого выделения
         if (_currentSelectedObject != null && _currentSelectedObject != hitObject)
         {
-            DisableOutline(_currentSelectedObject);
+        RestoreBaseEmission();
         }
 
         _currentSelectedObject = hitObject;
         _currentSelectedNode = FindNodeByObjectName(hitObject.name);
 
-        // Включаем контур
-        EnableOutline(hitObject, highlightColor, 0.008f);
+    // Включаем эмиссию выделения (без контура)
+    SelectWithEmission(hitObject);
 
-        // 3. Обновляем инфопанель и иерархию (без изменений)
-        if (infoPanel != null)
-        {
-            string title = _currentSelectedNode != null ? _currentSelectedNode.name : hitObject.name;
-            string description = _currentSelectedNode != null ? _currentSelectedNode.description : "Описание отсутствует.";
-            infoPanel.UpdateInfo(title, description);
-        }
-
-        if (hierarchyView != null && _currentSelectedNode != null)
-        {
-            hierarchyView.SelectPartByNode(_currentSelectedNode);
-        }
+    // Обновляем инфопанель через HierarchyView, чтобы не было дублей.
+    // Если узел не найден — покажем заглушку.
+    if (hierarchyView != null && _currentSelectedNode != null)
+    {
+        hierarchyView.SelectPartByNode(_currentSelectedNode);
+    }
+    else if (infoPanel != null)
+    {
+        infoPanel.UpdateInfo(hitObject.name, "Описание отсутствует.");
+    }
 
         Debug.Log($"[InteractionController] Выбрана деталь: {hitObject.name}");
     }
@@ -161,6 +176,15 @@ private void OnLeftClick(GameObject hitObject)
     private void OnRightClick(GameObject hitObject)
     {
         if (hitObject == null) return;
+
+    // Подсветка по ПКМ, чтобы было визуально понятно, по какой детали выполняется действие
+    if (_currentSelectedObject == null || _currentSelectedObject != hitObject)
+    {
+        RestoreBaseEmission();
+        _currentSelectedObject = hitObject;
+        _currentSelectedNode = FindNodeByObjectName(hitObject.name);
+        SelectWithEmission(hitObject);
+    }
 
         PartController partController = hitObject.GetComponent<PartController>();
 
@@ -346,34 +370,154 @@ private void OnLeftClick(GameObject hitObject)
     private void FlashError(PartController part)
     {
         if (part == null) return;
-        Renderer renderer = part.GetComponent<Renderer>();
+
+        Renderer[] renderers = part.GetComponentsInChildren<Renderer>();
+        if (renderers == null || renderers.Length == 0) return;
+
+        // Останавливаем возможную анимацию выделения, чтобы эмиссия не "дёргалась" в конкурирующих tween.
+        _selectionTween?.Kill();
+        _selectionTween = null;
+
+        _errorTween?.Kill();
+
+        // Восстановим эмиссию ровно в то состояние, которое было на момент вспышки.
+        var restoreEmissions = new Dictionary<Renderer, Color>(renderers.Length);
+        foreach (var r in renderers)
+        {
+            if (r == null) continue;
+            EnsureEmissionEnabled(r);
+            restoreEmissions[r] = GetCurrentEmission(r);
+        }
+
+        Color errorColor = new Color(1f, 0f, 0f, 1f) * errorEmissionMultiplier;
+        float duration = Mathf.Max(0.01f, errorFlashDuration);
+
+        _errorTween = DOVirtual.Float(0f, 1f, duration, t =>
+        {
+            // Две фазы: нарастание (0..0.5) и затухание (0.5..1)
+            float k;
+            if (t < 0.5f) k = Mathf.SmoothStep(0f, 1f, t / 0.5f);
+            else k = Mathf.SmoothStep(1f, 0f, (t - 0.5f) / 0.5f);
+
+            foreach (var kv in restoreEmissions)
+            {
+                var r = kv.Key;
+                if (r == null) continue;
+                Color from = kv.Value;
+                Color emission = Color.Lerp(from, errorColor, k);
+                SetEmission(r, emission);
+            }
+        })
+        .SetEase(Ease.Linear)
+        .OnComplete(() =>
+        {
+            foreach (var kv in restoreEmissions)
+            {
+                if (kv.Key == null) continue;
+                // Если это текущая выделенная деталь — возвращаем к "полной" яркости выделения.
+                if (_baseEmissions.ContainsKey(kv.Key))
+                    SetEmission(kv.Key, highlightColor * selectionEmissionMultiplier);
+                else
+                    SetEmission(kv.Key, kv.Value);
+            }
+        });
+    }
+
+    private void SelectWithEmission(GameObject target)
+    {
+        if (target == null) return;
+
+        _selectionTween?.Kill();
+        _selectionTween = null;
+        _errorTween?.Kill();
+        _errorTween = null;
+
+        Renderer[] renderers = target.GetComponentsInChildren<Renderer>();
+        if (renderers == null || renderers.Length == 0) return;
+
+        _baseEmissions.Clear();
+
+        // Сохраняем базовую эмиссию каждого рендера, чтобы потом корректно восстановить
+        foreach (var r in renderers)
+        {
+            if (r == null) continue;
+            EnsureEmissionEnabled(r);
+            _baseEmissions[r] = GetBaseEmission(r);
+        }
+
+        Color targetEmission = highlightColor * selectionEmissionMultiplier;
+
+        float duration = Mathf.Max(0.01f, selectionEmissionFadeDuration);
+        _selectionTween = DOVirtual.Float(0f, 1f, duration, t =>
+        {
+            foreach (var kv in _baseEmissions)
+            {
+                var r = kv.Key;
+                if (r == null) continue;
+                Color baseEmission = kv.Value;
+                SetEmission(r, Color.Lerp(baseEmission, targetEmission, t));
+            }
+        }).SetEase(Ease.OutCubic);
+    }
+
+    private void RestoreBaseEmission()
+    {
+        _selectionTween?.Kill();
+        _selectionTween = null;
+        _errorTween?.Kill();
+        _errorTween = null;
+
+        if (_baseEmissions.Count == 0) return;
+
+        foreach (var kv in _baseEmissions)
+        {
+            var r = kv.Key;
+            if (r == null) continue;
+            EnsureEmissionEnabled(r);
+            SetEmission(r, kv.Value);
+        }
+
+        _baseEmissions.Clear();
+    }
+
+    private Color GetBaseEmission(Renderer renderer)
+    {
+        if (renderer == null) return Color.black;
+        if (renderer.sharedMaterial != null && renderer.sharedMaterial.HasProperty("_EmissionColor"))
+        {
+            return renderer.sharedMaterial.GetColor("_EmissionColor");
+        }
+        return Color.black;
+    }
+
+    private Color GetCurrentEmission(Renderer renderer)
+    {
+        if (renderer == null) return Color.black;
+
+        renderer.GetPropertyBlock(_block);
+        if (_block != null && _block.HasProperty(_emissionId))
+        {
+            return _block.GetColor(_emissionId);
+        }
+
+        return GetBaseEmission(renderer);
+    }
+
+    private void EnsureEmissionEnabled(Renderer renderer)
+    {
+        if (renderer == null || renderer.sharedMaterial == null) return;
+        if (!renderer.sharedMaterial.HasProperty("_EmissionColor")) return;
+
+        // В shader эмиссия включена вариативностью через keyword — включаем, чтобы установка _EmissionColor визуально работала.
+        renderer.sharedMaterial.EnableKeyword("_EMISSION");
+    }
+
+    private void SetEmission(Renderer renderer, Color emission)
+    {
         if (renderer == null) return;
-
-        Color errorColor = new Color(1f, 0f, 0f, 1f) * 0.8f;
-        float flashDuration = 0.5f;
-        float halfDuration = flashDuration / 2f;
-
-        DOTween.To(() => 0f, x => {
-                if (renderer == null) return;
-                renderer.GetPropertyBlock(_block);
-
-                float alpha = x < halfDuration 
-                    ? Mathf.SmoothStep(0f, 1f, x / halfDuration)
-                    : Mathf.SmoothStep(1f, 0f, (x - halfDuration) / halfDuration);
-
-                _block.SetColor("_EmissionColor", errorColor * alpha);
-                renderer.SetPropertyBlock(_block);
-                
-            }, 0f, flashDuration)
-            .SetEase(Ease.Linear)
-            .OnComplete(() => {
-                if (renderer != null)
-                {
-                    renderer.GetPropertyBlock(_block);
-                    _block.SetColor("_EmissionColor", Color.black);
-                    renderer.SetPropertyBlock(_block);
-                }
-            });
+        renderer.GetPropertyBlock(_block);
+        _block.SetColor(_emissionId, emission);
+        renderer.SetPropertyBlock(_block);
     }
 
  // === OUTLINE CONTROLS ===
@@ -412,11 +556,12 @@ private void OnLeftClick(GameObject hitObject)
     /// </summary>
     public void ClearSelection()
     {
-        if (_currentSelectedObject != null)
-        {
-            DisableOutline(_currentSelectedObject);
-        }
-        
+        RestoreBaseEmission();
+        _selectionTween?.Kill();
+        _selectionTween = null;
+        _errorTween?.Kill();
+        _errorTween = null;
+
         _currentSelectedObject = null;
         _currentSelectedNode = null;
 
