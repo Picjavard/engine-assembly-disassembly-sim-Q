@@ -70,10 +70,19 @@ public class UIManager : MonoBehaviour
 
         // Сбор всех рендереров для прозрачности
         var parts = FindObjectsOfType<PartController>();
+        var uniqueRenderers = new HashSet<Renderer>();
         foreach (var part in parts)
         {
-            var rend = part.GetComponent<Renderer>();
-            if (rend != null) _allRenderers.Add(rend);
+            // Часто меш лежит в дочерних объектах — берём все рендереры под деталью.
+            var rends = part.GetComponentsInChildren<Renderer>(true);
+            foreach (var rend in rends)
+            {
+                if (rend == null) continue;
+                if (uniqueRenderers.Add(rend))
+                {
+                    _allRenderers.Add(rend);
+                }
+            }
         }
 
         UpdateUI();

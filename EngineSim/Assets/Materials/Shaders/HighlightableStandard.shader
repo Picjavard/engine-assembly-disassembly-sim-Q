@@ -13,10 +13,6 @@ Shader "Custom/HighlightableStandard"
         [ToggleOff] _SpecularHighlights("Specular Highlights", Float) = 1.0
         [ToggleOff] _GlossyReflections("Glossy Reflections", Float) = 1.0
         
-        // === OUTLINE PROPERTIES ===
-        _OutlineColor ("Outline Color", Color) = (1, 0.93, 0, 1)
-        _OutlineWidth ("Outline Width", Range(0, 0.05)) = 0.005
-
         _BumpScale("Scale", Float) = 1.0
         [Normal] _BumpMap("Normal Map", 2D) = "bump" {}
         _Parallax ("Height Scale", Range (0.005, 0.08)) = 0.02
@@ -140,48 +136,6 @@ Shader "Custom/HighlightableStandard"
             ENDCG
         }
 
-        // === OUTLINE PASS (для LOD 300) ===
-        Pass
-        {
-            Name "OUTLINE"
-            Tags { "LightMode"="Always" }
-            Cull Front
-            ZWrite Off
-            ZTest LEqual
-            Offset 10, 10
-            Blend SrcAlpha OneMinusSrcAlpha
-
-            CGPROGRAM
-            #pragma vertex vertOutline
-            #pragma fragment fragOutline
-            #include "UnityCG.cginc"
-            
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 vertex : SV_POSITION; UNITY_VERTEX_OUTPUT_STEREO };
-            
-            float4 _OutlineColor;
-            float _OutlineWidth;
-
-            v2f vertOutline(appdata v)
-            {
-                v2f o;
-                UNITY_SETUP_INSTANCE_ID(v);
-                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-                float3 worldNormal = UnityObjectToWorldNormal(v.normal);
-                float3 worldPos = mul(unity_ObjectToWorld, v.vertex).xyz;
-                worldPos += worldNormal * _OutlineWidth;
-                o.vertex = UnityWorldToClipPos(worldPos);
-                return o;
-            }
-
-            fixed4 fragOutline(v2f i) : SV_Target
-            {
-                // Если ширина <= 0 — не рисуем контур
-                if (_OutlineWidth <= 0.0001) clip(-1);
-                return _OutlineColor;
-            }
-            ENDCG
-        }
     }
 
     // ============================================================================
@@ -249,33 +203,6 @@ Shader "Custom/HighlightableStandard"
             ENDCG
         }
 
-        // === OUTLINE PASS (для LOD 150) ===
-        Pass
-        {
-            Name "OUTLINE"
-            Tags { "LightMode"="Always" }
-            Cull Front ZWrite Off ZTest LEqual Offset 10, 10 Blend SrcAlpha OneMinusSrcAlpha
-            CGPROGRAM
-            #pragma vertex vertOutline
-            #pragma fragment fragOutline
-            #include "UnityCG.cginc"
-            struct appdata { float4 vertex:POSITION; float3 normal:NORMAL; };
-            struct v2f { float4 vertex:SV_POSITION; };
-            float4 _OutlineColor; float _OutlineWidth;
-            v2f vertOutline(appdata v) {
-                v2f o;
-                float3 worldNormal = UnityObjectToWorldNormal(v.normal);
-                float3 worldPos = mul(unity_ObjectToWorld, v.vertex).xyz;
-                worldPos += worldNormal * _OutlineWidth;
-                o.vertex = UnityWorldToClipPos(worldPos);
-                return o;
-            }
-            fixed4 fragOutline(v2f i) : SV_Target {
-                if (_OutlineWidth <= 0.0001) clip(-1);
-                return _OutlineColor;
-            }
-            ENDCG
-        }
     }
 
     FallBack "VertexLit"
