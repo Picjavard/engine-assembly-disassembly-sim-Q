@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using DG.Tweening;
+using UnityEngine.UIElements;
 
 /// <summary>
 /// Контроллер орбитальной камеры с поддержкой плавного фокуса и зума.
@@ -29,6 +30,15 @@ public class OrbitCameraController : MonoBehaviour
     // Ссылки на действия New Input System
     private Mouse _mouse;
 
+    [Header("Ограничение вращения UI")]
+    [Tooltip("UIDocument с UI Toolkit разметкой (если не задан — будет найден в сцене)")]
+    public UIDocument uiDocument;
+
+    [Tooltip("Имя элемента UI, над которым разрешено вращение (drag)")]
+    public string centerViewportElementName = "CenterViewport";
+
+    private VisualElement _centerViewport;
+
     private void Start()
     {
         _cam = GetComponent<Camera>();
@@ -41,6 +51,13 @@ public class OrbitCameraController : MonoBehaviour
         // Инициализация New Input System
         _mouse = Mouse.current;
 
+        // Инициализация UI для проверки зоны вращения
+        if (uiDocument == null) uiDocument = FindObjectOfType<UIDocument>();
+        if (uiDocument != null && uiDocument.rootVisualElement != null)
+        {
+            _centerViewport = uiDocument.rootVisualElement.Q<VisualElement>(centerViewportElementName);
+        }
+
         UpdateCameraPosition();
     }
 
@@ -50,9 +67,12 @@ public class OrbitCameraController : MonoBehaviour
         if (_mouse == null)
             return;
 
+        Vector2 mouseScreenPos = _mouse.position.ReadValue();
+        bool allowOrbit = IsPointerOverCenterViewport(mouseScreenPos);
+
         // Вращение (ЛКМ + Drag или колесико как кнопка)
         // GetMouseButton(0) -> leftButton.isPressed
-        if (_mouse.leftButton.isPressed)
+        if (allowOrbit && _mouse.leftButton.isPressed)
         {
             //.GetAxis("Mouse X") -> delta.x
             float h = _mouse.delta.x.ReadValue();
@@ -69,12 +89,24 @@ public class OrbitCameraController : MonoBehaviour
         // Зум (Колесико мыши)
         //.GetAxis("Mouse ScrollWheel") -> scroll.ReadValue()
         float scroll = _mouse.scroll.ReadValue().y;
-        if (scroll != 0f)
+        if (allowOrbit && scroll != 0f)
         {
             currentDistance -= scroll * zoomSpeed * 0.01f; // Усиливаем чувствительность
             currentDistance = Mathf.Clamp(currentDistance, minDistance, maxDistance);
             UpdateCameraPosition();
         }
+    }
+
+    private bool IsPointerOverCenterViewport(Vector2 screenPos)
+    {
+        if (_centerViewport == null) return true; // если UI не проинициализировался — не ломаем управление
+
+        // worldBound живет в экранных координатах панели.
+        // Если по какой-то причине координаты не совпали — лучше оставить управление включенным.
+        var rect = _centerViewport.worldBound;
+        if (rect.width <= 0f || rect.height <= 0f) return true;
+
+        return rect.Contains(screenPos);
     }
 
     /// <summary>

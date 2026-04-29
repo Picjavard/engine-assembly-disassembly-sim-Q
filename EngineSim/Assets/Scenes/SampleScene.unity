@@ -761,12 +761,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 436efbf0ee7799f40a8f56424649cece, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  rotateSpeed: 200
+  rotateSpeed: 120
   minDistance: 2
   maxDistance: 20
   zoomSpeed: 0.2
   focusPoint: {x: 0, y: 0, z: 0}
   currentDistance: 10
+  uiDocument: {fileID: 0}
+  centerViewportElementName: CenterViewport
 --- !u!114 &963194231
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -787,8 +789,13 @@ MonoBehaviour:
   partsLayer:
     serializedVersion: 2
     m_Bits: 64
-  highlightDuration: 1
   highlightColor: {r: 1, g: 0.8, b: 0, a: 1}
+  selectionEmissionMultiplier: 0.27
+  selectionEmissionFadeDuration: 0.15
+  selectionEmissionHoldDuration: 1
+  selectionEmissionFadeOutDuration: 0.5
+  errorFlashDuration: 0.5
+  errorEmissionMultiplier: 1
   actionTimer: {fileID: 0}
 --- !u!1 &1734778611
 GameObject:
@@ -1024,7 +1031,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sequenceManager: {fileID: 2129739028}
-  highlighter: {fileID: 0}
   infoPanel: {fileID: 2051742097}
   hierarchyView: {fileID: 2051742096}
 --- !u!114 &2051742094
@@ -1072,7 +1078,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dataLoader: {fileID: 929162415}
   cameraController: {fileID: 963194229}
-  highlighter: {fileID: 0}
   infoPanel: {fileID: 2051742097}
 --- !u!114 &2051742097
 MonoBehaviour:
