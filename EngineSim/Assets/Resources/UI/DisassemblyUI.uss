@@ -228,6 +228,13 @@
     -unity-font-style: bold;
 }
 
+.transparency-toggle {
+    margin-bottom: 8px;
+    color: #ffffff;
+    -unity-font-style: bold;
+    unity-text-align: middle;
+}
+
 .slider {
     height: 25px;
 }

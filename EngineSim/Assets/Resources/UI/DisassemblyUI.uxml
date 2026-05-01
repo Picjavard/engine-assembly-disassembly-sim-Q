@@ -1,31 +1,16 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements"
-        xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements"
-        noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
-    <Style src="project://database/Assets/Resources/UI/DisassemblyUI.uss?fileID=7433441132597879392&amp;guid=PLACEHOLDER&amp;type=3#DisassemblyUI" />
-    
-    <!-- Корневой контейнер -->
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="project://database/Assets/Resources/UI/DisassemblyUI.uss?fileID=7433441132597879392&amp;guid=26474e39a2894454c9d2dd2f08556aec&amp;type=3#DisassemblyUI" />
     <ui:VisualElement name="root" class="root">
-        
-        <!-- Верхняя инфо-панель (по центру) -->
         <ui:VisualElement name="TopInfoPanel" class="top-info-panel">
             <ui:Label name="StepLabel" text="Шаг: 0 / 0" class="step-label" />
             <ui:Label name="PartNameLabel" text="Деталь: -" class="part-name" />
         </ui:VisualElement>
-		
-
-        <!-- Основной контейнер с панелями и 3D view -->
         <ui:VisualElement name="MainContainer" class="main-container">
-
-            <!-- Левая панель: Иерархия -->
             <ui:VisualElement name="LeftPanel" class="left-panel">
                 <ui:Label name="HierarchyTitle" text="Иерархия" class="panel-title" />
                 <ui:VisualElement name="HierarchyTree" class="hierarchy-tree" />
             </ui:VisualElement>
-
-            <!-- Центральная область (3D View) -->
             <ui:VisualElement name="CenterViewport" class="center-viewport" />
-
-            <!-- Правая панель: Информация о детали -->
             <ui:VisualElement name="RightPanel" class="right-panel">
                 <ui:VisualElement name="InfoPanelContainer" class="info-panel-container">
                     <ui:Label name="InfoTitle" text="Информация о детали" class="info-title" />
@@ -33,23 +18,17 @@
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
-
-        <!-- Нижняя панель управления -->
         <ui:VisualElement name="ControlsPanel" class="controls-panel">
-            
-            <!-- Кнопки действий -->
             <ui:VisualElement name="ActionGroup" class="action-group">
                 <ui:Button name="BtnPrev" text="◀ Назад" class="button" />
                 <ui:Button name="BtnNext" text="Вперед ▶" class="button" />
                 <ui:Button name="BtnReset" text="Сброс" class="button" />
             </ui:VisualElement>
-
-            <!-- Управление прозрачностью -->
             <ui:VisualElement name="TransparencyGroup" class="transparency-group">
                 <ui:Label name="TransparencyLabel" text="Прозрачность" class="slider-label" />
-                <ui:Slider name="TransparencySlider" class="slider" low-value="0" high-value="1" value="1" />
+                <ui:Toggle name="EnableTransparencyToggle" text="Включить" value="false" class="transparency-toggle" />
+                <ui:Slider name="TransparencySlider" low-value="0" high-value="1" value="1" class="slider" />
             </ui:VisualElement>
-
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

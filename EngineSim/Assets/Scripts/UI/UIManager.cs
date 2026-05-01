@@ -24,9 +24,14 @@ public class UIManager : MonoBehaviour
     private Button _btnPrev;
     private Button _btnReset;
     private Slider _transparencySlider;
+    private Toggle _enableTransparencyToggle;
 
     // Список всех деталей для расчета прозрачности
     private List<Renderer> _allRenderers = new List<Renderer>();
+
+    // Уникальные материалы, которые надо переключать между Opaque/Transparent режимами.
+    // Примечание: MaterialPropertyBlock не умеет менять Blend/ZWrite, поэтому нужен доступ к material.
+    private readonly HashSet<Material> _materials = new HashSet<Material>();
 
     // Текущая выбранная деталь (для обновления UI)
     private string _currentSelectedPartName = "-";
@@ -55,17 +60,27 @@ public class UIManager : MonoBehaviour
         _btnPrev = root.Q<Button>("BtnPrev");
         _btnReset = root.Q<Button>("BtnReset");
         _transparencySlider = root.Q<Slider>("TransparencySlider");
+        _enableTransparencyToggle = root.Q<Toggle>("EnableTransparencyToggle");
 
         // Регистрация событий
         if (_btnNext != null) _btnNext.clicked += OnNextClicked;
         if (_btnPrev != null) _btnPrev.clicked += OnPrevClicked;
         if (_btnReset != null) _btnReset.clicked += OnResetClicked;
         
-        if (_transparencySlider != null)
+        // Инициализация прозрачности
+        bool transparencyEnabled = _enableTransparencyToggle != null ? _enableTransparencyToggle.value : true;
+        if (_transparencySlider != null) 
         {
             _transparencySlider.RegisterValueChangedCallback(OnTransparencyChanged);
-            // Инициализация начального значения
-            ApplyTransparency(_transparencySlider.value);
+            _transparencySlider.SetEnabled(transparencyEnabled);
+
+            // Изначально выставим режим материала и alpha
+            // (после сборки _allRenderers и _materials мы вызовем ApplyTransparency еще раз).
+        }
+
+        if (_enableTransparencyToggle != null)
+        {
+            _enableTransparencyToggle.RegisterValueChangedCallback(OnTransparencyToggleChanged);
         }
 
         // Сбор всех рендереров для прозрачности
@@ -81,9 +96,17 @@ public class UIManager : MonoBehaviour
                 if (uniqueRenderers.Add(rend))
                 {
                     _allRenderers.Add(rend);
+                    if (rend != null && rend.sharedMaterial != null)
+                    {
+                        _materials.Add(rend.sharedMaterial);
+                    }
                 }
             }
         }
+
+        // Применяем режим материала перед установкой alpha
+        SetMaterialTransparencyMode(transparencyEnabled);
+        ApplyTransparency(transparencyEnabled ? (_transparencySlider != null ? _transparencySlider.value : 1f) : 1f);
 
         UpdateUI();
         
@@ -107,7 +130,23 @@ public class UIManager : MonoBehaviour
 
     private void OnTransparencyChanged(ChangeEvent<float> evt)
     {
+        // Если прозрачность выключена — игнорируем изменения слайдера.
+        if (_enableTransparencyToggle != null && !_enableTransparencyToggle.value)
+            return;
         ApplyTransparency(evt.newValue);
+    }
+
+    private void OnTransparencyToggleChanged(ChangeEvent<bool> evt)
+    {
+        bool enabled = evt.newValue;
+
+        if (_transparencySlider != null)
+            _transparencySlider.SetEnabled(enabled);
+
+        // Переключаем Blend/ZWrite/keywords, чтобы включать/выключать "строгий Opaque".
+        SetMaterialTransparencyMode(enabled);
+
+        ApplyTransparency(enabled ? _transparencySlider.value : 1f);
     }
 
     /// <summary>
@@ -147,6 +186,42 @@ public class UIManager : MonoBehaviour
             // 4. Применяем обратно
             mpb.SetColor(colorId, current);
             renderer.SetPropertyBlock(mpb);
+        }
+    }
+
+    private void SetMaterialTransparencyMode(bool enabled)
+    {
+        foreach (var mat in _materials)
+        {
+            if (mat == null) continue;
+
+            // Убираем варианты, оставляем "обычный alpha blend"
+            mat.DisableKeyword("_ALPHATEST_ON");
+            mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            mat.DisableKeyword("_ALPHABLEND_ON");
+
+            if (enabled)
+            {
+                mat.EnableKeyword("_ALPHABLEND_ON");
+
+                // Standard transparent: SrcAlpha/OneMinusSrcAlpha, ZWrite Off
+                if (mat.HasProperty("_Mode")) mat.SetFloat("_Mode", 3f);
+                if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", 5f);
+                if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", 10f);
+                if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 0f);
+
+                mat.renderQueue = 3000;
+            }
+            else
+            {
+                // Оpaque: SrcAlpha(не важен) / OneMinusSrcAlpha(не важен), ZWrite On
+                if (mat.HasProperty("_Mode")) mat.SetFloat("_Mode", 0f);
+                if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", 1f);
+                if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", 0f);
+                if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 1f);
+
+                mat.renderQueue = 2000;
+            }
         }
     }
 
